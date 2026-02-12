@@ -1,0 +1,56 @@
+.deleteModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.deleteModalBox {
+  background: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  width: 350px;
+  text-align: center;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+}
+
+.deleteModalTitle {
+  margin-bottom: 10px;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.deleteModalText {
+  font-size: 15px;
+  margin-bottom: 20px;
+}
+
+.deleteModalActions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.deleteBtn {
+  background-color: red;
+  color: #fff;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cancelBtn {
+  background-color: #6c757d;
+  color: #fff;
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
