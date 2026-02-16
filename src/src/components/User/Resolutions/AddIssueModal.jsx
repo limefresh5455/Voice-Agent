@@ -34,11 +34,13 @@ const AddIssueModal = ({ show, onClose, organization, onIssueAdded }) => {
   useEffect(() => {
     if (show && organization != null) {
       GetIssues(Number(organization))
-        .then((data) => {
+        .then((res) => {
+          const apiData = res?.data?.data || [];
+
           const uniqueCategories = [];
           const categoryMap = new Map();
 
-          data.forEach((item) => {
+          apiData.forEach((item) => {
             if (!categoryMap.has(item.category_id)) {
               categoryMap.set(item.category_id, true);
               uniqueCategories.push({
@@ -80,21 +82,38 @@ const AddIssueModal = ({ show, onClose, organization, onIssueAdded }) => {
   if (!show) return null;
 
   const handleStepChange = (id, value) => {
-    setResolutionSteps((prev) =>
-      prev.map((step) => (step.id === id ? { ...step, text: value } : step)),
+    const updatedSteps = resolutionSteps.map((step) =>
+      step.id === id ? { ...step, text: value } : step,
     );
+    setResolutionSteps(updatedSteps);
+    const paragraph = updatedSteps
+      .map((step) => step.text)
+      .filter((text) => text.trim() !== "")
+      .join("\n");
+    setParagraphSteps(paragraph);
   };
 
   const addStep = () => {
-    setResolutionSteps((prev) => [...prev, { id: prev.length + 1, text: "" }]);
+    const updated = [
+      ...resolutionSteps,
+      { id: resolutionSteps.length + 1, text: "" },
+    ];
+
+    setResolutionSteps(updated);
+
+    const paragraph = updated.map((s) => s.text).join("\n");
+    setParagraphSteps(paragraph);
   };
 
   const removeStep = (id) => {
-    setResolutionSteps((prev) =>
-      prev
-        .filter((step) => step.id !== id)
-        .map((step, index) => ({ ...step, id: index + 1 })),
-    );
+    const updated = resolutionSteps
+      .filter((step) => step.id !== id)
+      .map((step, index) => ({ ...step, id: index + 1 }));
+
+    setResolutionSteps(updated);
+
+    const paragraph = updated.map((s) => s.text).join("\n");
+    setParagraphSteps(paragraph);
   };
 
   const handleSubmit = async () => {
@@ -415,7 +434,26 @@ const AddIssueModal = ({ show, onClose, organization, onIssueAdded }) => {
               rows="5"
               placeholder="Enter resolution steps in paragraph format..."
               value={paragraphSteps}
-              onChange={(e) => setParagraphSteps(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setParagraphSteps(value);
+
+                const lines = value
+                  .split("\n")
+                  .map((line) => line.trim())
+                  .filter((line) => line.length > 0);
+
+                const formattedSteps = lines.map((line, index) => ({
+                  id: index + 1,
+                  text: line,
+                }));
+
+                setResolutionSteps(
+                  formattedSteps.length
+                    ? formattedSteps
+                    : [{ id: 1, text: "" }],
+                );
+              }}
             />
           </div>
         )}

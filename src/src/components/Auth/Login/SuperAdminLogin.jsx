@@ -2,22 +2,18 @@ import React, { useState, useEffect } from "react";
 import { FaEye, FaEyeSlash, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import "./OrganizationLogin.css";
-
 import { signInValidation } from "../AuthValidations/AuthValidations";
 import { signInSuperService } from "../AuthServices/AuthServices";
 import { useAppContext } from "../../Context/AppContext";
 
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
-
   const [showPassword, setShowPassword] = useState(false);
   const { setUser } = useAppContext();
-
   const [signInData, setSignInData] = useState({
     email: "",
     password: "",
   });
-
   const [Errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
@@ -28,6 +24,17 @@ const SuperAdminLogin = () => {
       navigate("/super-admin-dashboard", { replace: true });
     }
   }, [navigate]);
+
+  const handleBackClick = () => {
+    const storedSuper = sessionStorage.getItem("super_credentials");
+
+    if (storedSuper) {
+      sessionStorage.removeItem("super_credentials");
+      setUser(null);
+    }
+
+    navigate("/", { replace: true });
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -58,7 +65,7 @@ const SuperAdminLogin = () => {
 
           sessionStorage.setItem(
             "super_credentials",
-            JSON.stringify(loginResponse)
+            JSON.stringify(loginResponse),
           );
           setUser(loginResponse);
 
@@ -124,6 +131,14 @@ const SuperAdminLogin = () => {
 
           <button className="orgLogin-btn" type="submit" disabled={isLoading}>
             {isLoading ? "Signing In..." : "Login"}
+          </button>
+
+          <button
+            type="button"
+            className="orgLogin-backBtn"
+            onClick={handleBackClick}
+          >
+            <FaArrowLeft className="orgLogin-backIcon" /> Back
           </button>
         </form>
       </div>

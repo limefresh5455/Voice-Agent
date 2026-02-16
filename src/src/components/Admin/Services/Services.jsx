@@ -46,7 +46,12 @@ function Services() {
   const [bulkEditIndex, setBulkEditIndex] = useState(0);
   const [bulkEditData, setBulkEditData] = useState([]);
   const [isBulkEditing, setIsBulkEditing] = useState(false);
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const isBulkMode = selectedServices.length > 0;
+  const pageSize = 20;
+  const [isDeleting, setIsDeleting] = useState(false);
   const [editForm, setEditForm] = useState({
     customer_id: null,
     service_id: null,
@@ -70,23 +75,30 @@ function Services() {
   const handleAddServices = () => {
     setShowServiceForm(true);
   };
+  const fetchCustomers = async () => {
+    setLoadingCustomers(true);
+    try {
+      const res = await GetCustomerList();
+      const data = res.data;
+
+      if (Array.isArray(data.customers?.data)) {
+        setCustomers(data.customers.data);
+      } else {
+        setCustomers([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch customers:", err);
+      setCustomers([]);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
   useEffect(() => {
     if (!showServiceForm) return;
-    const fetchCustomers = async () => {
-      setLoadingCustomers(true);
-      try {
-        const res = await GetCustomerList();
-        const customerList = res.data?.customers || [];
-        setCustomers(customerList);
-      } catch (err) {
-        console.error("Failed to fetch customers:", err);
-        setCustomers([]);
-      } finally {
-        setLoadingCustomers(false);
-      }
-    };
     fetchCustomers();
   }, [showServiceForm]);
+
   const handleServiceInputChange = (e) => {
     const { name, value } = e.target;
     setServiceForm((prev) => ({
@@ -94,6 +106,7 @@ function Services() {
       [name]: value,
     }));
   };
+
   const handleSubmitService = async () => {
     if (!selectedCustomerId) {
       toast.warning(t("toastSelectCustomer"));
@@ -145,16 +158,26 @@ function Services() {
     fetchServiceNames();
   }, [showServiceForm]);
 
-  const fetchAllServices = async () => {
+  const fetchAllServices = async (page = 1) => {
     try {
       setLoadingServices(true);
-      const res = await GetAllServices();
 
-      const tableData = (res.data.services || [])
+      const res = await GetAllServices(page, pageSize);
+      console.log("SERVICES API RESPONSE:", res.data);
+
+      const responseData = res.data;
+
+      const serviceList =
+        responseData.services ||
+        responseData.data?.services ||
+        responseData.data ||
+        [];
+
+      const tableData = serviceList
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .map((service) => ({
-          customerId: service.customer.id,
-          customerName: service.customer.name,
+          customerId: service.customer?.id,
+          customerName: service.customer?.name,
           serviceName: service.service_name,
           price: service.price,
           status: service.status,
@@ -163,6 +186,12 @@ function Services() {
         }));
 
       setServicesTableList(tableData);
+
+      setTotalCount(responseData.total || responseData.data?.total || 0);
+      setTotalPages(
+        responseData.total_pages || responseData.data?.total_pages || 1,
+      );
+      setCurrentPage(responseData.page || responseData.data?.page || 1);
     } catch (err) {
       console.error("Failed to fetch services:", err);
       setServicesTableList([]);
@@ -170,9 +199,10 @@ function Services() {
       setLoadingServices(false);
     }
   };
+
   useEffect(() => {
-    fetchAllServices();
-  }, []);
+    fetchAllServices(currentPage);
+  }, [currentPage]);
 
   const handleCreateService = async () => {
     if (!newServiceName.trim()) {
@@ -208,28 +238,25 @@ function Services() {
 
   const handleUpdateService = async () => {
     try {
-      setIsLoading(true);
-
-      const payload = {
-        service_status: editForm.service_status,
-        price: Number(editForm.price),
-        billing_cycle: editForm.billing_cycle,
-      };
-
-      await editServices({
-        customer_id: editForm.customer_id,
-        service_id: editForm.service_id,
-        ...payload,
-      });
-
+      const payload = [
+        {
+          customer_id: editForm.customer_id,
+          services: [
+            {
+              service_id: editForm.service_id,
+              service_status: editForm.service_status,
+              price: Number(editForm.price),
+              billing_cycle: editForm.billing_cycle,
+            },
+          ],
+        },
+      ];
+      await editServices(payload);
       toast.success(t("toastServiceUpdated"));
       setShowEditModal(false);
       await fetchAllServices();
     } catch (error) {
-      console.error("Update service error:", error);
       toast.error(t("toastUpdateServiceFailed"));
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -291,7 +318,7 @@ function Services() {
   };
   const handleBulkOrSingleDelete = async () => {
     try {
-      setIsLoading(true);
+      setIsDeleting(true);
       let payload;
       if (selectedServices.length > 0) {
         const grouped = selectedServices.reduce((acc, item) => {
@@ -320,12 +347,13 @@ function Services() {
         };
         await DeleteCustomerService(payload);
       }
-      toast.error(t("toastServiceDeleted"));
+
+      toast.success(t("toastServiceDeleted"));
       await fetchAllServices();
     } catch (error) {
       toast.error(t("toastDeleteServiceFailed"));
     } finally {
-      setIsLoading(false);
+      setIsDeleting(false);
       setDeleteModal(false);
       setDeleteData({ customerId: null, customerServiceId: null });
     }
@@ -357,23 +385,38 @@ function Services() {
   const handleUpdateAndNext = () => {
     const current = editForm;
 
-    // Add current service to bulk edit data
-    setBulkEditData((prev) => [
-      ...prev.filter((item) => item.customer_id !== current.customer_id),
-      {
-        customer_id: current.customer_id,
-        services: [
-          {
-            service_id: current.service_id,
-            service_status: current.service_status,
-            price: Number(current.price),
-            billing_cycle: current.billing_cycle,
-          },
-        ],
-      },
-    ]);
+    setBulkEditData((prev) => {
+      const existingCustomerIndex = prev.findIndex(
+        (item) => item.customer_id === current.customer_id,
+      );
 
-    // Move to next service
+      if (existingCustomerIndex !== -1) {
+        const updated = [...prev];
+        updated[existingCustomerIndex].services.push({
+          service_id: current.service_id,
+          service_status: current.service_status,
+          price: Number(current.price),
+          billing_cycle: current.billing_cycle,
+        });
+        return updated;
+      } else {
+        return [
+          ...prev,
+          {
+            customer_id: current.customer_id,
+            services: [
+              {
+                service_id: current.service_id,
+                service_status: current.service_status,
+                price: Number(current.price),
+                billing_cycle: current.billing_cycle,
+              },
+            ],
+          },
+        ];
+      }
+    });
+
     if (bulkEditIndex < selectedServices.length - 1) {
       const nextServiceId = selectedServices[bulkEditIndex + 1].serviceId;
       const nextCustomerId = selectedServices[bulkEditIndex + 1].customerId;
@@ -401,13 +444,13 @@ function Services() {
   const saveBulkEdits = async () => {
     try {
       setIsLoading(true);
-
-      await editServices({ customers: bulkEditData }); // match your API payload
-
+      await editServices(bulkEditData);
       toast.success(t("toastServiceUpdated"));
       setShowEditModal(false);
       setIsBulkEditing(false);
       setSelectedServices([]);
+      setBulkEditData([]);
+      setBulkEditIndex(0);
       await fetchAllServices();
     } catch (error) {
       console.error("Bulk update failed:", error);
@@ -415,6 +458,18 @@ function Services() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const openSingleEditModal = (service) => {
+    setEditForm({
+      customer_id: service.customerId,
+      service_id: service.customerServiceId,
+      service_status: service.status,
+      price: service.price,
+      billing_cycle: service.billingCycle,
+    });
+    setIsBulkEditing(false);
+    setShowEditModal(true);
   };
 
   return (
@@ -446,20 +501,17 @@ function Services() {
           {selectedServices.length > 0 && (
             <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded">
               <span>{selectedServices.length} selected</span>
+              <div className="d-flex gap-2">
+                <button className="service_edit_btn" onClick={startBulkEdit}>
+                  <MdModeEdit />
+                  {t("Edit")}
+                </button>
 
-              <button
-                className="btn btn-primary btn-sm ms-2"
-                onClick={startBulkEdit}
-              >
-                {t("bulkEdit")}
-              </button>
-
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => setDeleteModal(true)}
-              >
-                {t("deleteSelected")}
-              </button>
+                <button className="delete" onClick={() => setDeleteModal(true)}>
+                  <MdDelete />
+                  {t("delete")}
+                </button>
+              </div>
             </div>
           )}
 
@@ -544,22 +596,15 @@ function Services() {
                         <div className="action_service_btn">
                           <button
                             className="service_edit_btn"
-                            onClick={() => {
-                              setEditForm({
-                                customer_id: service.customerId,
-                                service_id: service.customerServiceId,
-                                service_status: service.status,
-                                price: service.price,
-                                billing_cycle: service.billingCycle,
-                              });
-                              setShowEditModal(true);
-                            }}
+                            onClick={() => openSingleEditModal(service)}
+                            disabled={isBulkMode}
                           >
                             <MdModeEdit /> {t("edit")}
                           </button>
 
                           <button
                             className="delete"
+                            disabled={isBulkMode}
                             onClick={() => {
                               setDeleteData({
                                 customerId: service.customerId,
@@ -583,6 +628,57 @@ function Services() {
                 )}
               </tbody>
             </table>
+
+            <div className="d-flex justify-content-center mt-4">
+              <nav>
+                <ul className="pagination custom-pagination">
+                  <li
+                    className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage((prev) => prev - 1)}
+                    >
+                      ‹
+                    </button>
+                  </li>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (page) =>
+                        page >= currentPage - 1 && page <= currentPage + 1,
+                    )
+                    .map((page) => (
+                      <li
+                        key={page}
+                        className={`page-item ${
+                          currentPage === page ? "active" : ""
+                        }`}
+                      >
+                        <button
+                          className="page-link"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </button>
+                      </li>
+                    ))}
+
+                  <li
+                    className={`page-item ${
+                      currentPage === totalPages ? "disabled" : ""
+                    }`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                    >
+                      ›
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
 
           {showServiceForm && (
@@ -619,12 +715,11 @@ function Services() {
                       </select>
                     </div>
 
-                    {/* Service Name */}
                     <div className="mb-3">
-                      <label className="form-label fw-bold">
+                      <label className="form-label fw-bold d-block">
                         {t("serviceName")}
                       </label>
-                      <small className="text-muted">
+                      <small className="text-muted d-block mb-2">
                         {t("selectOrCreateService")}
                       </small>
 
@@ -649,7 +744,6 @@ function Services() {
                           </select>
                         </div>
 
-                        {/* Create New Service */}
                         <div className="col-md-6">
                           <div className="input-group">
                             <input
@@ -686,7 +780,6 @@ function Services() {
                     </div>
 
                     <div className="row">
-                      {/* Service Start Date */}
                       <div className="col-md-6 mb-4">
                         <label className="form-label fw-semibold">
                           {t("serviceStartDate")}
@@ -700,7 +793,6 @@ function Services() {
                         />
                       </div>
 
-                      {/* Service End Date */}
                       <div className="col-md-6 mb-4">
                         <label className="form-label fw-semibold">
                           {t("serviceEndDate")}
@@ -716,7 +808,6 @@ function Services() {
                     </div>
 
                     <div className="row">
-                      {/* Service Status */}
                       <div className="col-md-6 mb-4">
                         <label className="form-label fw-semibold">
                           {t("serviceStatus")}
@@ -731,7 +822,6 @@ function Services() {
                         />
                       </div>
 
-                      {/* Billing Cycle */}
                       <div className="col-md-6 mb-4">
                         <label className="form-label fw-semibold">
                           {t("billingCycle")}
@@ -748,7 +838,6 @@ function Services() {
                     </div>
 
                     <div className="row">
-                      {/* Price */}
                       <div className="col-md-6 mb-4">
                         <label className="form-label fw-semibold">
                           {t("price")}
@@ -763,7 +852,6 @@ function Services() {
                         />
                       </div>
 
-                      {/* Renewal Date */}
                       <div className="col-md-6 mb-4">
                         <label className="form-label fw-semibold">
                           {t("renewalDate")}
@@ -818,7 +906,6 @@ function Services() {
                   </div>
 
                   <div className="modal-body">
-                    {/* Service Status */}
                     <div className="mb-3">
                       <label className="form-label fw-semibold">
                         {t("serviceStatus")}
@@ -836,7 +923,6 @@ function Services() {
                       />
                     </div>
 
-                    {/* Billing Cycle */}
                     <div className="mb-3">
                       <label className="form-label fw-semibold">
                         {t("billingCycle")}
@@ -854,7 +940,6 @@ function Services() {
                       />
                     </div>
 
-                    {/* Price */}
                     <div className="mb-3">
                       <label className="form-label fw-semibold">Price</label>
                       <input
@@ -874,41 +959,34 @@ function Services() {
                   <div className="modal-footer">
                     <button
                       className="btn btn-secondary"
-                      onClick={() => setShowEditModal(false)}
+                      onClick={() => {
+                        setShowEditModal(false);
+                      }}
+                      disabled={isloading}
                     >
-                      {t("cancel")}
+                      Close
                     </button>
-                    {isBulkEditing ? (
-                      <button
-                        className="btn update-btn-primary"
-                        onClick={handleUpdateAndNext}
-                        disabled={isloading}
-                      >
-                        {isloading ? (
-                          <>
-                            <span className="spinner-border spinner-border-sm me-2"></span>
-                            {t("updating")}
-                          </>
-                        ) : (
-                          t("updateNext")
-                        )}
-                      </button>
-                    ) : (
-                      <button
-                        className="btn update-btn-primary"
-                        onClick={handleUpdateService}
-                        disabled={isloading}
-                      >
-                        {isloading ? (
-                          <>
-                            <span className="spinner-border spinner-border-sm me-2"></span>
-                            {t("updating")}
-                          </>
-                        ) : (
-                          t("update")
-                        )}
-                      </button>
-                    )}
+
+                    <button
+                      className="btn update-btn-primary"
+                      onClick={
+                        isBulkEditing
+                          ? handleUpdateAndNext
+                          : handleUpdateService
+                      }
+                      disabled={isloading}
+                    >
+                      {isloading ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2"></span>
+                          {isBulkEditing ? "Updating & Next..." : "Updating..."}
+                        </>
+                      ) : isBulkEditing ? (
+                        "Update & Next"
+                      ) : (
+                        "Update"
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1004,8 +1082,20 @@ function Services() {
           <ConfirmDeleteModal
             show={deleteModal}
             message={t("deleteOrgConfirm")}
-            onConfirm={handleBulkOrSingleDelete}
-            onCancel={() => setDeleteModal(false)}
+            isDeleting={isDeleting}
+            onConfirm={async () => {
+              try {
+                setIsDeleting(true);
+
+                await handleBulkOrSingleDelete();
+              } finally {
+                setIsDeleting(false);
+                setDeleteModal(false);
+              }
+            }}
+            onCancel={() => {
+              if (!isDeleting) setDeleteModal(false);
+            }}
           />
         </div>
       </div>

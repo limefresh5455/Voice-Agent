@@ -9,13 +9,13 @@ export const CreateAdmin = async (payload) => {
   }
 };
 
-export const GetAdminsList = async () => {
-  try {
-    const res = await axiosInstance.get(`/org/admin/list`);
-    return res;
-  } catch (error) {
-    throw error;
-  }
+export const GetAdminsList = async (page = 1, page_size = 20) => {
+  return axiosInstance.get(`/org/admin/list`, {
+    params: {
+      page,
+      page_size,
+    },
+  });
 };
 
 export const CreateCustomer = async (payload) => {
@@ -27,13 +27,13 @@ export const CreateCustomer = async (payload) => {
   }
 };
 
-export const GetCustomersList = async () => {
-  try {
-    const res = await axiosInstance.get(`/org/customer/list`);
-    return res;
-  } catch (error) {
-    throw error;
-  }
+export const GetCustomersList = async (page = 1, page_size = 20) => {
+  return axiosInstance.get(`/org/customer/list`, {
+    params: {
+      page,
+      page_size,
+    },
+  });
 };
 
 export const deleteAdmin = async (payload) => {
@@ -120,14 +120,13 @@ export const UploadIssuesFile = async (formData) => {
   }
 };
 
-export const GetIssues = async (organization) => {
-  try {
-    const res = await axiosInstance.get(`/org/all-category/${organization}`);
-    return res.data;
-  } catch (error) {
-    console.error("Error fetching issues:", error);
-    throw error;
-  }
+export const GetIssues = async (organization_id, page = 1, page_size = 20) => {
+  return axiosInstance.get(`/org/all-category/${organization_id}`, {
+    params: {
+      page: page,
+      page_size: page_size,
+    },
+  });
 };
 
 export const ShowIssuesDetail = async (issue_id, organization_id) => {
@@ -186,12 +185,9 @@ export const UpdateCustomer = async (payload) => {
   }
 };
 
-export const UpdateIssues = async (issue_id, payload) => {
+export const UpdateIssues = async (payload) => {
   try {
-    const res = await axiosInstance.put(
-      `/org/issues-detail/${issue_id}`,
-      payload,
-    );
+    const res = await axiosInstance.put(`/org/issues/update`, payload);
     return res.data;
   } catch (error) {
     console.error("Error updating issue:", error);

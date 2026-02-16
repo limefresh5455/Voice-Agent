@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FaExclamationTriangle } from "react-icons/fa";
 
@@ -8,10 +8,13 @@ const ConfirmModal = ({
   message,
   onConfirm,
   onCancel,
-  isLoading,
+  isDeleting,
 }) => {
-  if (!isOpen) return null;
-  const { t } = useTranslation();
+  const { t } = useTranslation(); // ✅ always call first
+  // const [isDeleting, setIsDeleting] = useState(false); // optional: remove if parent manages this
+
+  if (!isOpen) return null; // ✅ conditional return comes after hooks
+
   return (
     <div
       style={{
@@ -37,26 +40,20 @@ const ConfirmModal = ({
           padding: "25px 20px",
           boxShadow: "0 8px 25px rgba(0,0,0,0.3)",
           textAlign: "center",
-          animation: "fadeIn 0.3s ease",
         }}
       >
         <div
-          style={{
-            fontSize: "2.5rem",
-            color: "#dc3545",
-            marginBottom: "15px",
-          }}
+          style={{ fontSize: "2.5rem", color: "#dc3545", marginBottom: "15px" }}
         >
           <FaExclamationTriangle />
         </div>
 
         <h2 style={{ margin: "0 0 10px 0", fontSize: "1.5rem", color: "#333" }}>
-          {title || "Delete Confirmation"}
+          {title || t("deleteConfirmationTitle")}
         </h2>
 
         <p style={{ color: "#555", fontSize: "1rem", marginBottom: "25px" }}>
-          {message ||
-            "Are you sure you want to delete this item? This action cannot be undone."}
+          {message || t("deleteConfirmationMessage")}
         </p>
 
         <div
@@ -77,35 +74,26 @@ const ConfirmModal = ({
               color: "#333",
               fontWeight: "500",
               cursor: "pointer",
-              transition: "all 0.2s",
             }}
-            onMouseEnter={(e) => (e.target.style.background = "#e2e6ea")}
-            onMouseLeave={(e) => (e.target.style.background = "#f8f9fa")}
           >
             {t("cancel")}
           </button>
+
           <button
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isDeleting}
             style={{
               flex: 1,
               padding: "10px 0",
               borderRadius: "8px",
               border: "none",
-              background: isLoading ? "#e74c3c80" : "#dc3545",
+              background: isDeleting ? "#e74c3c80" : "#dc3545",
               color: "white",
               fontWeight: "600",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              transition: "all 0.2s",
+              cursor: isDeleting ? "not-allowed" : "pointer",
             }}
-            onMouseEnter={(e) =>
-              !isLoading && (e.target.style.background = "#c0392b")
-            }
-            onMouseLeave={(e) =>
-              !isLoading && (e.target.style.background = "#dc3545")
-            }
           >
-            {isLoading ? t("deleting") : t("yesDelete")}
+            {isDeleting ? t("deleting") : t("delete")}
           </button>
         </div>
       </div>

@@ -27,6 +27,12 @@ const AdminCustomer = () => {
   const [customerDetails, setCustomerDetails] = useState(null);
   const [bulkEditIndex, setBulkEditIndex] = useState(0);
   const bulkUpdateRef = React.useRef([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const pageSize = 20;
 
   const [customerForm, setCustomerForm] = useState({
     FirstName: "",
@@ -88,16 +94,20 @@ const AdminCustomer = () => {
     }
   };
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (page = 1) => {
     try {
       setLoadingCustomers(true);
-      const res = await GetAllCustomers();
 
-      const sortedCustomers = (res.data || []).sort(
-        (a, b) => new Date(b.created_at) - new Date(a.created_at),
-      );
+      const res = await GetAllCustomers(page, pageSize);
 
-      setCustomers(sortedCustomers);
+      if (res.status === 200) {
+        const responseData = res.data;
+
+        setCustomers(responseData.data || []);
+        setTotalCount(responseData.total || 0);
+        setTotalPages(responseData.total_pages || 1);
+        setCurrentPage(responseData.page || 1);
+      }
     } catch (error) {
       console.error("Failed to fetch customers", error);
       setCustomers([]);
@@ -107,15 +117,13 @@ const AdminCustomer = () => {
   };
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+    fetchCustomers(currentPage);
+  }, [currentPage]);
 
   const handleShowDetails = async (customerId) => {
     try {
       setLoadingDetail(true);
-
       const res = await GetAdminCustomerDetails(customerId);
-
       setCustomerDetails(res.data);
       setShowDetailsModal(true);
     } catch (error) {
@@ -129,10 +137,8 @@ const AdminCustomer = () => {
     try {
       setLoadingDetail(true);
       const res = await GetAdminCustomerDetails(customerId);
-
       const fullName = res.data.name || "";
       const nameParts = fullName.trim().split(" ");
-
       setEditCustomerForm({
         first_name: nameParts[0] || "",
         last_name: nameParts.slice(1).join(" ") || "",
@@ -140,7 +146,6 @@ const AdminCustomer = () => {
         phone: res.data.phone || "",
         city: res.data.city || "",
       });
-
       setEditCustomerId(customerId);
     } catch (error) {
       console.error("Failed to load customer for edit", error);
@@ -174,17 +179,14 @@ const AdminCustomer = () => {
 
   const handleUpdateCustomer = async () => {
     const { first_name, last_name, email, phone, city } = editCustomerForm;
-
     if (!first_name || !last_name || !email || !phone || !city) {
       toast.warning(t("allFieldsRequired"));
       return;
     }
-
     const currentCustomerId =
       selectedCustomers.length > 0
         ? selectedCustomers[bulkEditIndex]
         : editCustomerId;
-
     const updatedData = {
       customer_id: currentCustomerId,
       first_name,
@@ -193,13 +195,10 @@ const AdminCustomer = () => {
       phone,
       city,
     };
-
     try {
       setIsLoading(true);
-
       if (selectedCustomers.length > 0) {
         bulkUpdateRef.current.push(updatedData);
-
         if (bulkEditIndex < selectedCustomers.length - 1) {
           setBulkEditIndex((prev) => prev + 1);
           setIsLoading(false);
@@ -212,11 +211,11 @@ const AdminCustomer = () => {
           setShowEditModal(false);
         }
       } else {
-        await editAdminCustomer(updatedData);
+        await editAdminCustomer([updatedData]);
+
         toast.success(t("customerUpdatedSuccess"));
         setShowEditModal(false);
       }
-
       await fetchCustomers();
     } catch (error) {
       toast.error(t("customerUpdateFailed"));
@@ -232,19 +231,17 @@ const AdminCustomer = () => {
   };
   const handleDeleteCustomer = async () => {
     try {
-      setIsLoading(true);
+      setIsDeleting(true);
       let payload;
+
       if (selectedCustomers.length > 0) {
-        payload = {
-          customer_ids: selectedCustomers,
-        };
+        payload = { customer_ids: selectedCustomers };
       } else if (deleteCustomerId) {
-        payload = {
-          customer_ids: [deleteCustomerId],
-        };
+        payload = { customer_ids: [deleteCustomerId] };
       }
+
       await DeleteAdminCustomer(payload);
-      toast.error(t("customerDeletedSuccess"));
+      toast.success(t("customerDeletedSuccess"));
       setSelectedCustomers([]);
       setDeleteCustomerId(null);
       setDeleteModal(false);
@@ -252,7 +249,7 @@ const AdminCustomer = () => {
     } catch (error) {
       toast.error(t("customerDeleteFailed"));
     } finally {
-      setIsLoading(false);
+      setIsDeleting(false);
     }
   };
 
@@ -283,13 +280,6 @@ const AdminCustomer = () => {
       const allIds = customers.map((customer) => customer.id);
       setSelectedCustomers(allIds);
     }
-  };
-
-  const handleBulkEdit = (services) => {
-    setSelectedServices(services);
-    setCurrentIndex(0);
-    setBulkEdits([]);
-    setShowModal(true);
   };
 
   return (
@@ -419,6 +409,13 @@ const AdminCustomer = () => {
                           <button
                             className="adminCustomer_edit_btn"
                             onClick={() => handleEditCustomer(customer.id)}
+                            disabled={selectedCustomers.length > 0}
+                            style={{
+                              cursor:
+                                selectedCustomers.length > 0
+                                  ? "not-allowed"
+                                  : "pointer",
+                            }}
                           >
                             <MdModeEdit /> {t("edit")}
                           </button>
@@ -426,6 +423,13 @@ const AdminCustomer = () => {
                           <button
                             className="delete"
                             onClick={() => handleDeleteClick(customer.id)}
+                            disabled={selectedCustomers.length > 0}
+                            style={{
+                              cursor:
+                                selectedCustomers.length > 0
+                                  ? "not-allowed"
+                                  : "pointer",
+                            }}
                           >
                             <MdDelete /> {t("delete")}
                           </button>
@@ -442,6 +446,56 @@ const AdminCustomer = () => {
                 )}
               </tbody>
             </table>
+            <div className="d-flex justify-content-center mt-4">
+              <nav>
+                <ul className="pagination custom-pagination">
+                  <li
+                    className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage((prev) => prev - 1)}
+                    >
+                      ‹
+                    </button>
+                  </li>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (page) =>
+                        page >= currentPage - 1 && page <= currentPage + 1,
+                    )
+                    .map((page) => (
+                      <li
+                        key={page}
+                        className={`page-item ${
+                          currentPage === page ? "active" : ""
+                        }`}
+                      >
+                        <button
+                          className="page-link"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </button>
+                      </li>
+                    ))}
+
+                  <li
+                    className={`page-item ${
+                      currentPage === totalPages ? "disabled" : ""
+                    }`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                    >
+                      ›
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
           <ConfirmDeleteModal
             show={deleteModal}
@@ -451,6 +505,7 @@ const AdminCustomer = () => {
               setDeleteModal(false);
               setDeleteCustomerId(null);
             }}
+            isDeleting={isDeleting}
           />
 
           {showCustomerForm && (
@@ -560,18 +615,18 @@ const AdminCustomer = () => {
                           <strong>{t("phone")}:</strong>{" "}
                           {customerDetails.phone || "-"}
                         </p>
-                        <p>
+                        {/* <p>
                           <strong>{t("address")}:</strong>{" "}
                           {customerDetails.address || "-"}
-                        </p>
+                        </p> */}
                         <p>
                           <strong>{t("city")}:</strong>{" "}
                           {customerDetails.city || "-"}
                         </p>
-                        <p>
+                        {/* <p>
                           <strong>{t("country")}:</strong>{" "}
                           {customerDetails.country || "-"}
-                        </p>
+                        </p> */}
 
                         <p>
                           <strong>{t("status")}:</strong>{" "}
@@ -584,11 +639,8 @@ const AdminCustomer = () => {
                             customerDetails.created_at,
                           ).toLocaleString()}
                         </p>
-
                         <hr />
-
                         <h6 className="fw-bold mb-2">{t("services")}</h6>
-
                         {customerDetails.services?.length > 0 ? (
                           customerDetails.services.map((service, index) => (
                             <div
@@ -723,16 +775,30 @@ const AdminCustomer = () => {
                     />
                   </div>
 
-                  <div className="modal-footer">
+                  <div className="modal-footer ">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => {
+                        setShowEditModal(false);
+                        setSelectedCustomers([]);
+                        setBulkEditIndex(0);
+                      }}
+                      disabled={isloading}
+                    >
+                      Close
+                    </button>
+
                     <button
                       className="btn update-btn-primary"
                       onClick={handleUpdateCustomer}
                       disabled={isloading}
                     >
-                      {selectedCustomers.length > 0 &&
-                      bulkEditIndex < selectedCustomers.length - 1
-                        ? "Update & Next"
-                        : "Update"}
+                      {isloading
+                        ? "Updating..."
+                        : selectedCustomers.length > 0 &&
+                            bulkEditIndex < selectedCustomers.length - 1
+                          ? "Update & Next"
+                          : "Update"}
                     </button>
                   </div>
                 </div>

@@ -14,6 +14,7 @@ import {
 import ConfirmDeleteModal from "../../CommonComponent/ConfirmDeleteModal/ConfirmDeleteModal";
 import LeadDetailModal from "./LeadDetailModal";
 import { toast } from "react-toastify";
+import { MdDelete } from "react-icons/md";
 
 function Leads() {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
@@ -25,30 +26,43 @@ function Leads() {
   const { t } = useTranslation();
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
-  const [isLoadingAssign, setIsLoadingAssign] = useState(false);
-  const [resolvingLeadId, setResolvingLeadId] = useState(null);
   const [assigningLeadIds, setAssigningLeadIds] = useState([]);
   const [resolvingLeadIds, setResolvingLeadIds] = useState([]);
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [deletingLeadIds, setDeletingLeadIds] = useState([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const pageSize = 20;
 
   const toggleLeftSidebar = () => {
     setLeftSidebarOpen((prev) => !prev);
   };
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (page = 1) => {
     try {
       setIsLoading(true);
-      const res = await GetAllLeads();
-      setLeads(res?.data || []);
+      const res = await GetAllLeads(page, pageSize);
+      if (res.status === 200) {
+        const responseData = res.data;
+        setLeads(responseData.data || []);
+        setTotalCount(responseData.total || 0);
+        setTotalPages(responseData.total_pages || 1);
+        setCurrentPage(responseData.page || 1);
+      }
     } catch (error) {
       console.error(error);
+      setLeads([]);
     } finally {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
-    fetchLeads();
-  }, []);
+    fetchLeads(currentPage);
+  }, [currentPage]);
 
   const handleOpenDeleteModal = (id) => {
     setDeleteCustomerId(id);
@@ -56,33 +70,28 @@ function Leads() {
   };
 
   const handleDeleteLeads = async () => {
+    let leadsToDelete = [];
+
+    if (selectedLeadIds.length > 0) {
+      leadsToDelete = [...selectedLeadIds];
+    } else if (deleteCustomerId) {
+      leadsToDelete = [deleteCustomerId];
+    }
+
     try {
-      setIsLoading(true);
+      setIsDeleting(true);
+      await deleteLead({ lead_ids: leadsToDelete });
 
-      if (selectedLeadIds.length > 0) {
-        await deleteLead({
-          lead_ids: selectedLeadIds,
-        });
-
-        setLeads((prev) =>
-          prev.filter((lead) => !selectedLeadIds.includes(lead.id)),
-        );
-
-        setSelectedLeadIds([]);
-      } else if (deleteCustomerId) {
-        await deleteLead({
-          lead_ids: [deleteCustomerId],
-        });
-
-        setLeads((prev) => prev.filter((lead) => lead.id !== deleteCustomerId));
-      }
-
-      toast.error(t("leadDeletedSuccess"));
+      setLeads((prev) =>
+        prev.filter((lead) => !leadsToDelete.includes(lead.id)),
+      );
+      setSelectedLeadIds([]);
+      toast.success(t("leadDeletedSuccess"));
     } catch (error) {
       console.error(error);
       toast.error(t("deleteFailed"));
     } finally {
-      setIsLoading(false);
+      setIsDeleting(false);
       setDeleteModal(false);
       setDeleteCustomerId(null);
     }
@@ -106,7 +115,6 @@ function Leads() {
       setAssigningLeadIds((prev) => [...prev, leadId]);
       await AddAssignLeadForm(leadId);
       toast.success(t("assignedSuccess"));
-
       fetchLeads();
     } catch (err) {
       console.error("Assign lead error:", err);
@@ -119,11 +127,8 @@ function Leads() {
   const handleResolveLead = async (leadId) => {
     try {
       setResolvingLeadIds((prev) => [...prev, leadId]);
-
       const res = await ResolveLeadQuery(leadId);
-
       toast.success(t("resolveSuccess"));
-
       setLeads((prev) =>
         prev.map((lead) =>
           lead.id === leadId
@@ -134,7 +139,6 @@ function Leads() {
             : lead,
         ),
       );
-
       setShowDetailModal(false);
       setSelectedLead(null);
     } catch (error) {
@@ -183,11 +187,9 @@ function Leads() {
             <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded">
               <span>{selectedLeadIds.length} selected</span>
 
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => setDeleteModal(true)}
-              >
-                {t("deleteSelected")}
+              <button className="delete" onClick={() => setDeleteModal(true)}>
+                <MdDelete />
+                {t("delete")}
               </button>
             </div>
           )}
@@ -283,7 +285,22 @@ function Leads() {
                         <button
                           className="delete"
                           onClick={() => handleOpenDeleteModal(lead.id)}
+                          disabled={
+                            selectedLeadIds.length > 0 ||
+                            deletingLeadIds.includes(lead.id)
+                          }
+                          style={{
+                            cursor:
+                              selectedLeadIds.length > 0
+                                ? "not-allowed"
+                                : "pointer",
+                          }}
                         >
+                          {deletingLeadIds.includes(lead.id) ? (
+                            t("deleting")
+                          ) : (
+                            <MdDelete />
+                          )}
                           {t("delete")}
                         </button>
                       </td>
@@ -298,6 +315,57 @@ function Leads() {
                 )}
               </tbody>
             </table>
+
+            <div className="d-flex justify-content-center mt-4">
+              <nav>
+                <ul className="pagination custom-pagination">
+                  <li
+                    className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage((prev) => prev - 1)}
+                    >
+                      ‹
+                    </button>
+                  </li>
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (page) =>
+                        page >= currentPage - 1 && page <= currentPage + 1,
+                    )
+                    .map((page) => (
+                      <li
+                        key={page}
+                        className={`page-item ${
+                          currentPage === page ? "active" : ""
+                        }`}
+                      >
+                        <button
+                          className="page-link"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </button>
+                      </li>
+                    ))}
+
+                  <li
+                    className={`page-item ${
+                      currentPage === totalPages ? "disabled" : ""
+                    }`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                    >
+                      ›
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
           {showDetailModal && (
             <div
@@ -322,6 +390,7 @@ function Leads() {
               setDeleteModal(false);
               setDeleteCustomerId(null);
             }}
+            isDeleting={isDeleting}
           />
         </div>
       </div>

@@ -3,66 +3,135 @@ import { toast } from "react-toastify";
 import { UpdateIssues } from "../UserServices/UserServices";
 import { RxCross2 } from "react-icons/rx";
 import { FiPlus } from "react-icons/fi";
-const EditIssueModal = ({ show, loading, data, onClose, onSave }) => {
+const EditIssueModal = ({
+  show,
+  loading,
+  data,
+  onClose,
+  onSave,
+  isBulkEditing,
+}) => {
   const [saving, setSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [formData, setFormData] = useState({
     issue_name: "",
     resolution_steps: [],
   });
+
+  const [paragraphSteps, setParagraphSteps] = useState("");
+  const [stepMode, setStepMode] = useState("step");
+
   useEffect(() => {
-    if (data) {
+    if (data?.issue) {
+      const formattedSteps = data.issue.steps.map((step, index) => ({
+        step_number: index + 1,
+        description: step.description || "",
+      }));
+
       setFormData({
-        issue_name: data.issue?.issue_name || "",
-        resolution_steps: data.issue?.steps || [],
+        issue_name: data.issue.issue_name || "",
+        resolution_steps: formattedSteps,
       });
+
+      setParagraphSteps(formattedSteps.map((s) => s.description).join("\n"));
     }
   }, [data]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
   const handleStepChange = (index, value) => {
-    const steps = [...formData.resolution_steps];
-    steps[index].description = value;
-    setFormData((prev) => ({ ...prev, resolution_steps: steps }));
-  };
-  const handleAddStep = () => {
+    const updatedSteps = [...formData.resolution_steps];
+    updatedSteps[index].description = value;
+
     setFormData((prev) => ({
       ...prev,
-      resolution_steps: [
-        ...prev.resolution_steps,
-        { step_number: prev.resolution_steps.length + 1, description: "" },
-      ],
+      resolution_steps: updatedSteps,
     }));
+
+    const paragraph = updatedSteps
+      .map((s) => s.description)
+      .filter((text) => text.trim() !== "")
+      .join("\n");
+
+    setParagraphSteps(paragraph);
   };
+
+  const handleAddStep = () => {
+    const updatedSteps = [
+      ...formData.resolution_steps,
+      {
+        step_number: formData.resolution_steps.length + 1,
+        description: "",
+      },
+    ];
+
+    setFormData((prev) => ({
+      ...prev,
+      resolution_steps: updatedSteps,
+    }));
+
+    setParagraphSteps(updatedSteps.map((s) => s.description).join("\n"));
+  };
+
   const handleRemoveStep = (index) => {
-    const steps = formData.resolution_steps.filter((_, i) => i !== index);
-    steps.forEach((step, i) => (step.step_number = i + 1));
-    setFormData((prev) => ({ ...prev, resolution_steps: steps }));
+    const updatedSteps = formData.resolution_steps
+      .filter((_, i) => i !== index)
+      .map((step, i) => ({
+        ...step,
+        step_number: i + 1,
+      }));
+
+    setFormData((prev) => ({
+      ...prev,
+      resolution_steps: updatedSteps,
+    }));
+
+    setParagraphSteps(updatedSteps.map((s) => s.description).join("\n"));
   };
+
   const handleSave = async () => {
     if (!data?.issue?.issue_id) {
       toast.error("Invalid issue ID!");
       return;
     }
+
+    let finalSteps = [];
+
+    if (stepMode === "step") {
+      if (formData.resolution_steps.some((s) => !s.description.trim())) {
+        toast.error("Please fill all steps");
+        return;
+      }
+
+      finalSteps = formData.resolution_steps.map((s) => s.description);
+    } else {
+      if (!paragraphSteps.trim()) {
+        toast.error("Please enter paragraph steps");
+        return;
+      }
+
+      finalSteps = [paragraphSteps.trim()];
+    }
+
     const payload = {
+      issue_id: data.issue.issue_id,
       issue_name: formData.issue_name,
-      steps: formData.resolution_steps
-        .slice(0, 100)
-        .map((step) => step.description),
+      steps: finalSteps,
     };
+
     try {
       setSaving(true);
-      await UpdateIssues(data.issue.issue_id, payload);
-      toast.success("Issue updated successfully!");
-      onClose();
+      await onSave(payload);
     } catch (error) {
-      console.error("Update failed:", error);
       toast.error("Failed to update issue!");
     } finally {
       setSaving(false);
     }
   };
+
   if (!show) return null;
   return (
     <div
@@ -121,32 +190,84 @@ const EditIssueModal = ({ show, loading, data, onClose, onSave }) => {
             </div>
             <div className="mb-3">
               <div className="d-flex align-items-baseline justify-content-between mb-3">
-                <h5 className="step_heading">Resolution Steps:</h5>
-                <button onClick={handleAddStep} className="add_steps">
-                  <FiPlus style={{ marginRight: "8px" }} />
-                  Add Step
-                </button>
-              </div>
-              {formData.resolution_steps.map((step, index) => (
-                <div
-                  key={index}
-                  className="d-flex justify-space-between gap-3 mb-3 align-items-center"
-                >
-                  <span className="steps">Step {step.step_number}:</span>
-                  <input
-                    type="text"
-                    value={step.description}
-                    onChange={(e) => handleStepChange(index, e.target.value)}
-                    className="steps_inner_box"
-                  />
-                  <button
-                    onClick={() => handleRemoveStep(index)}
-                    className="cross_icon"
-                  >
-                    <RxCross2 />
-                  </button>
+                <div style={{ marginBottom: "15px" }}>
+                  <h5 className="step_heading">Resolution Steps:</h5>
+                  <label style={{ marginRight: "15px" }}>
+                    <input
+                      type="radio"
+                      checked={stepMode === "step"}
+                      onChange={() => setStepMode("step")}
+                    />{" "}
+                    Step Wise
+                  </label>
+
+                  <label>
+                    <input
+                      type="radio"
+                      checked={stepMode === "paragraph"}
+                      onChange={() => setStepMode("paragraph")}
+                    />{" "}
+                    Paragraph
+                  </label>
                 </div>
-              ))}
+
+                {stepMode === "step" && (
+                  <button onClick={handleAddStep} className="add_steps">
+                    <FiPlus style={{ marginRight: "8px" }} />
+                    Add Step
+                  </button>
+                )}
+              </div>
+              {stepMode === "step" ? (
+                formData.resolution_steps.map((step, index) => (
+                  <div
+                    key={index}
+                    className="d-flex justify-space-between gap-3 mb-3 align-items-center"
+                  >
+                    <span className="steps">Step {step.step_number}:</span>
+                    <input
+                      type="text"
+                      value={step.description}
+                      onChange={(e) => handleStepChange(index, e.target.value)}
+                      className="steps_inner_box"
+                    />
+                    <button
+                      onClick={() => handleRemoveStep(index)}
+                      className="cross_icon"
+                    >
+                      <RxCross2 />
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <textarea
+                  className="form-control"
+                  rows="5"
+                  placeholder="Enter resolution steps in paragraph format..."
+                  value={paragraphSteps}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setParagraphSteps(value);
+
+                    const lines = value
+                      .split("\n")
+                      .map((line) => line.trim())
+                      .filter((line) => line.length > 0);
+
+                    const formattedSteps = lines.map((line, index) => ({
+                      step_number: index + 1,
+                      description: line,
+                    }));
+
+                    setFormData((prev) => ({
+                      ...prev,
+                      resolution_steps: formattedSteps.length
+                        ? formattedSteps
+                        : [{ step_number: 1, description: "" }],
+                    }));
+                  }}
+                />
+              )}
             </div>
             <div
               style={{
@@ -160,8 +281,13 @@ const EditIssueModal = ({ show, loading, data, onClose, onSave }) => {
                 disabled={saving}
                 className="btn btn-primary"
               >
-                {saving ? "Updating..." : "Update"}
+                {saving
+                  ? "Updating..."
+                  : selectedIds?.length > 0 && isBulkEditing
+                    ? "Update & Next"
+                    : "Update"}
               </button>
+
               <button onClick={onClose} className="btn btn-secondary">
                 Cancel
               </button>

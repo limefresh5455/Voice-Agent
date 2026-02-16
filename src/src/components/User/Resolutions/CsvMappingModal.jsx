@@ -2,21 +2,28 @@ import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { ImportIssuesWithMapping } from "../UserServices/UserServices";
 
-function CsvMappingModal({ show, onClose, fileData }) {
+function CsvMappingModal({
+  show,
+  onClose,
+  fileData,
+  currentIndex,
+  totalFiles,
+  onNext,
+}) {
   const [mapping, setMapping] = useState({});
   const [loading, setLoading] = useState(false);
   const [headerRow, setHeaderRow] = useState(0);
+  const preview = fileData?.preview || {};
+  const [allMappings, setAllMappings] = useState([]);
 
-  const systemFields = fileData?.system_fields || [];
+  const systemFields = preview.system_fields || [];
+  const headers = preview.json_headers || preview.csv_headers || [];
+
   const file = fileData?.file;
 
   const isJsonFile =
     file?.type === "application/json" ||
     file?.name?.toLowerCase().endsWith(".json");
-
-  const headers = isJsonFile
-    ? fileData?.json_headers || []
-    : fileData?.csv_headers || [];
 
   useEffect(() => {
     if (headers.length > 0) {
@@ -33,7 +40,7 @@ function CsvMappingModal({ show, onClose, fileData }) {
       });
 
       setMapping(initialMapping);
-      setHeaderRow(fileData?.detected_header_row ?? 0);
+      setHeaderRow(preview?.detected_header_row ?? 0);
     }
   }, [fileData]);
 
@@ -48,8 +55,6 @@ function CsvMappingModal({ show, onClose, fileData }) {
 
   const handleSubmit = async () => {
     try {
-      setLoading(true);
-
       if (!file) {
         toast.error("File missing. Please upload again.");
         return;
@@ -61,23 +66,14 @@ function CsvMappingModal({ show, onClose, fileData }) {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("mapping", JSON.stringify(mapping));
-
-      if (!isJsonFile) {
-        formData.append("header_row", headerRow);
-      }
-
-      await ImportIssuesWithMapping(formData);
-
-      toast.success("Issues imported successfully!");
-      onClose();
+      onNext({
+        file,
+        mapping,
+        headerRow,
+      });
     } catch (error) {
       console.error(error);
-      toast.error("Import failed!");
-    } finally {
-      setLoading(false);
+      toast.error("Something went wrong!");
     }
   };
 
@@ -132,7 +128,7 @@ function CsvMappingModal({ show, onClose, fileData }) {
             onClick={handleSubmit}
             disabled={loading}
           >
-            {loading ? "Importing..." : "Submit"}
+            {currentIndex === totalFiles - 1 ? "Submit" : "Next"}
           </button>
         </div>
       </div>

@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
 import { FaBars, FaRobot } from "react-icons/fa";
 import { useAppContext } from "../../Context/AppContext";
 import { toast } from "react-toastify";
@@ -21,35 +20,36 @@ import AdminSidebar from "../AdminSidebar";
 
 import { useTranslation } from "react-i18next";
 import AdminHeader from "../AdminHeader/AdminHeader";
+import { MdDelete } from "react-icons/md";
 
 const AdminDashboard = () => {
   const ws = useRef(null);
   const { t } = useTranslation();
-  const [loadingEmail, setLoadingEmail] = useState(false);
   const { user, handleLogout } = useAppContext();
-  const [organizations, setOrganizations] = useState([]);
   const navigate = useNavigate();
-  const [selected, setSelected] = useState("");
   const [isloading, setIsLoading] = useState(false);
   const [staticData, setstaticData] = useState(null);
-  const [historyData, setHistoryData] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [allCustomers, setAllCustomers] = useState([]);
-  const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [formDetail, setFormDetail] = useState(null);
   const [detailModal, setDetailModal] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [isLoading, setIsLaoding] = useState(false);
   const [isLoadingAssign, setIsLaodingAssign] = useState(false);
   const [aiSummary, setAiSummary] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+
   const [selectedIds, setSelectedIds] = useState([]);
   const [openProfile, setOpenProfile] = useState(false);
   const profileRef = useRef(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
+  const pageSize = 20;
   const toggleLeftSidebar = () => {
     setLeftSidebarOpen((prev) => !prev);
   };
@@ -64,12 +64,18 @@ const AdminDashboard = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const fetchAllCustomers = async () => {
+  const fetchAllCustomers = async (page = 1) => {
     setIsLoading(true);
     try {
-      const data = await GetFormDetails();
-
-      setAllCustomers(data || []);
+      const res = await GetFormDetails(page, pageSize);
+      if (res.status === 200) {
+        const responseData = res.data;
+        const customerList = responseData.data || [];
+        setAllCustomers(customerList);
+        setTotalCount(responseData.total);
+        setTotalPages(responseData.total_pages);
+        setCurrentPage(responseData.page);
+      }
     } catch (err) {
       if (err?.response?.status === 401) handleLogout();
       console.error(err);
@@ -79,24 +85,8 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    fetchAllCustomers();
-  }, []);
-
-  const handleSendEmail = async () => {
-    if (!selected) return;
-    setLoadingEmail(true);
-    try {
-      const payload = { file_id: selected };
-      const res = await ChatTwoSendMailConversation(payload);
-      console.log("Email sent successfully:", res);
-      toast.success("Chat history sent to your email successfully");
-    } catch (err) {
-      if (err?.response?.status === 401) handleLogout();
-      console.log("Failed to send email:", err);
-    } finally {
-      setLoadingEmail(false);
-    }
-  };
+    fetchAllCustomers(currentPage);
+  }, [currentPage]);
 
   const handleSelectRow = (id) => {
     setSelectedIds((prev) =>
@@ -116,16 +106,13 @@ const AdminDashboard = () => {
     try {
       setLoadingDetail(true);
       setDetailModal(true);
-
       const [formData, customerData] = await Promise.all([
         ShowCustomerFormDetails(form_id),
         ShowCustomerDetails(customer_id),
       ]);
-
       setFormDetail(formData);
       setstaticData(customerData);
       setLeftSidebarOpen(true);
-
       try {
         const aiSummaryRes = await AIAgentSummaryAPI(form_id);
         setAiSummary(aiSummaryRes?.summary_text || null);
@@ -144,24 +131,11 @@ const AdminDashboard = () => {
     }
   };
 
-  const toggleHistory = (fileId) => {
-    setHistoryData((prev) =>
-      prev.map((item) =>
-        item.fileId === fileId
-          ? { ...item, isCollapsed: !item.isCollapsed }
-          : item,
-      ),
-    );
-  };
-
   const handleAssign = async (form_id) => {
     try {
       setIsLaodingAssign(true);
-
       const res = await AddAssignForm(form_id);
-
       toast.success("Form assigned successfully!");
-
       setAllCustomers((prev) =>
         prev.map((item) =>
           item.id === form_id
@@ -208,24 +182,22 @@ const AdminDashboard = () => {
   const handleDeleteConfirm = async () => {
     try {
       setIsDeleting(true);
+
       if (selectedIds.length > 0) {
-        await DeleteQueryForm({
-          form_ids: selectedIds,
-        });
+        await DeleteQueryForm({ form_ids: selectedIds });
         setAllCustomers((prev) =>
           prev.filter((item) => !selectedIds.includes(item.id)),
         );
         setSelectedIds([]);
       } else if (deleteId) {
-        await DeleteQueryForm({
-          form_ids: [deleteId],
-        });
+        await DeleteQueryForm({ form_ids: [deleteId] });
         setAllCustomers((prev) => prev.filter((item) => item.id !== deleteId));
       }
-      toast.error("Form deleted successfully!");
+
+      toast.success("Form deleted successfully!");
     } catch (err) {
-      if (err?.response?.status === 401) handleLogout();
       console.error(err);
+      toast.error("Failed to delete form.");
     } finally {
       setIsDeleting(false);
       setDeleteModal(false);
@@ -261,12 +233,9 @@ const AdminDashboard = () => {
           {selectedIds.length > 0 && (
             <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded">
               <span>{selectedIds.length} selected</span>
-
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => setDeleteModal(true)}
-              >
-                {t("deleteSelected")}
+              <button className="delete" onClick={() => setDeleteModal(true)}>
+                <MdDelete />
+                {t("delete")}
               </button>
             </div>
           )}
@@ -328,9 +297,7 @@ const AdminDashboard = () => {
                             />
                           </td>
                           <td>{item.customer_name}</td>
-
                           <td>{item.form_title}</td>
-
                           <td>{new Date(item.created_at).toLocaleString()}</td>
 
                           <td>
@@ -395,7 +362,15 @@ const AdminDashboard = () => {
                                 setDeleteId(item.id);
                                 setDeleteModal(true);
                               }}
+                              disabled={selectedIds.length > 0}
+                              style={{
+                                cursor:
+                                  selectedIds.length > 0
+                                    ? "not-allowed"
+                                    : "pointer",
+                              }}
                             >
+                              <MdDelete />
                               {t("delete")}
                             </button>
                           </td>
@@ -405,12 +380,64 @@ const AdminDashboard = () => {
                   </tbody>
                 </table>
 
+                <div className="d-flex justify-content-center mt-4">
+                  <nav>
+                    <ul className="pagination custom-pagination">
+                      <li
+                        className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+                      >
+                        <button
+                          className="page-link"
+                          onClick={() => setCurrentPage((prev) => prev - 1)}
+                        >
+                          ‹
+                        </button>
+                      </li>
+
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(
+                          (page) =>
+                            page >= currentPage - 1 && page <= currentPage + 1,
+                        )
+                        .map((page) => (
+                          <li
+                            key={page}
+                            className={`page-item ${
+                              currentPage === page ? "active" : ""
+                            }`}
+                          >
+                            <button
+                              className="page-link"
+                              onClick={() => setCurrentPage(page)}
+                            >
+                              {page}
+                            </button>
+                          </li>
+                        ))}
+
+                      <li
+                        className={`page-item ${
+                          currentPage === totalPages ? "disabled" : ""
+                        }`}
+                      >
+                        <button
+                          className="page-link"
+                          onClick={() => setCurrentPage((prev) => prev + 1)}
+                        >
+                          ›
+                        </button>
+                      </li>
+                    </ul>
+                  </nav>
+                </div>
+
                 <ConfirmModal
                   isOpen={deleteModal}
                   title={t("deleteConfirmationTitle")}
                   message={t("deleteConfirmationMessage")}
                   onCancel={() => setDeleteModal(false)}
                   onConfirm={handleDeleteConfirm}
+                  isDeleting={isDeleting}
                 />
               </>
             )}

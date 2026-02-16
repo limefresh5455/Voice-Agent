@@ -36,64 +36,38 @@ function UserDashboard() {
   const [showAdminDetailModal, setShowAdminDetailModal] = useState(false);
   const [adminDetail, setAdminDetail] = useState(null);
   const [adminDetailLoading, setAdminDetailLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
-  const rowsPerPage = 5;
-  const indexOfLastRow = currentPage * rowsPerPage;
-  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentAdmins = admins.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(admins.length / rowsPerPage);
-  const getPagination = (current, total) => {
-    const delta = 2;
-    const pages = [];
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-    for (let i = 1; i <= total; i++) {
-      if (
-        i === 1 ||
-        i === total ||
-        (i >= current - delta && i <= current + delta)
-      ) {
-        pages.push(i);
-      }
-    }
-
-    const result = [];
-    let last = null;
-
-    for (let page of pages) {
-      if (last) {
-        if (page - last === 2) {
-          result.push(last + 1);
-        } else if (page - last > 2) {
-          result.push("...");
-        }
-      }
-      result.push(page);
-      last = page;
-    }
-
-    return result;
-  };
+  const pageSize = 20;
 
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
   };
-  const GetAdminsDetail = async () => {
+  const GetAdminsDetail = async (page = 1) => {
     try {
       setIsLoading(true);
 
-      const res = await GetAdminsList();
+      const res = await GetAdminsList(page, pageSize);
 
-      if (res.status === 200 || res.status === 201) {
-        const companies = Array.isArray(res.data) ? res.data : [];
-        const sortedData = [...companies].sort((a, b) => b.id - a.id);
+      if (res.status === 200) {
+        const responseData = res.data;
+
+        const adminList = responseData.data || [];
 
         setAdmins(
-          sortedData.map((item) => ({
+          adminList.map((item) => ({
             ...item,
-            isActive: item.isActive ?? true,
+            isActive: item.is_active,
           })),
         );
+
+        setTotalCount(responseData.total);
+        setTotalPages(responseData.total_pages);
+        setCurrentPage(responseData.page);
       }
     } catch (error) {
       if (error?.response?.status === 401) {
@@ -104,9 +78,11 @@ function UserDashboard() {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
-    GetAdminsDetail();
-  }, []);
+    GetAdminsDetail(currentPage);
+  }, [currentPage]);
+
   const handleSave = async () => {
     if (!name || !email || !phone_no || !description) {
       toast.error("All fields are required!");
@@ -145,39 +121,7 @@ function UserDashboard() {
     setIsEditMode(false);
     setEditData(null);
   };
-  const handleDelete = async (id) => {
-    try {
-      const res = await deleteAdmin({ admin_id: id });
-      if (res.status === 200 || res.status === 201) {
-        setAdmins((prev) => prev.filter((x) => x.id !== id));
-        toast.error("Admin deleted successfully!");
-      }
-    } catch (error) {
-      console.error("Error deleting admin:", error);
-      if (error.response.status === 401) {
-        handleLogout();
-      }
-    }
-  };
-  const handleToggle = async (id) => {
-    try {
-      const current = admins.find((a) => a.id === id);
-      const newStatus = !current.isActive;
-      const res = await ShowStatus(id, newStatus);
-      if (res.status === 200 || res.status === 201) {
-        setAdmins((prev) =>
-          prev.map((admin) =>
-            admin.id === id ? { ...admin, isActive: newStatus } : admin,
-          ),
-        );
-        toast.success(
-          newStatus ? "Organization Activated!" : "Organization Deactivated!",
-        );
-      }
-    } catch (error) {
-      toast.error("Toggle failed!");
-    }
-  };
+
   const handleShowAdminDetail = async (admin_id) => {
     try {
       setAdminDetailLoading(true);
@@ -242,11 +186,9 @@ function UserDashboard() {
           {selectedIds.length > 0 && (
             <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded">
               <span>{selectedIds.length} selected</span>
-              <button
-                className="btn btn-danger btn-sm"
-                onClick={() => setDeleteModal(true)}
-              >
-                Delete Selected
+              <button className="delete" onClick={() => setDeleteModal(true)}>
+                <MdDelete />
+                Delete
               </button>
             </div>
           )}
@@ -308,6 +250,13 @@ function UserDashboard() {
                           onClick={() => {
                             setDeleteId(item.id);
                             setDeleteModal(true);
+                          }}
+                          disabled={selectedIds.length > 0}
+                          style={{
+                            cursor:
+                              selectedIds.length > 0
+                                ? "not-allowed"
+                                : "pointer",
                           }}
                         >
                           <MdDelete /> Delete
@@ -494,39 +443,96 @@ function UserDashboard() {
             )}
           </div>
 
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(currentPage - 1)}
-              >
-                ‹
-              </button>
-
-              {getPagination(currentPage, totalPages).map((item, index) =>
-                item === "..." ? (
-                  <span key={index} className="dots">
-                    ...
-                  </span>
-                ) : (
+          <div className="d-flex justify-content-center mt-4">
+            <nav>
+              <ul className="pagination custom-pagination">
+                <li
+                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+                >
                   <button
-                    key={index}
-                    className={currentPage === item ? "active" : ""}
-                    onClick={() => setCurrentPage(item)}
+                    className="page-link"
+                    onClick={() => setCurrentPage((prev) => prev - 1)}
                   >
-                    {item}
+                    ‹
                   </button>
-                ),
-              )}
+                </li>
 
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(currentPage + 1)}
-              >
-                ›
-              </button>
-            </div>
-          )}
+                <li
+                  className={`page-item ${currentPage === 1 ? "active" : ""}`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => setCurrentPage(1)}
+                  >
+                    1
+                  </button>
+                </li>
+
+                {currentPage > 3 && (
+                  <li className="page-item disabled">
+                    <span className="page-link">...</span>
+                  </li>
+                )}
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(
+                    (page) =>
+                      page !== 1 &&
+                      page !== totalPages &&
+                      page >= currentPage - 1 &&
+                      page <= currentPage + 1,
+                  )
+                  .map((page) => (
+                    <li
+                      key={page}
+                      className={`page-item ${currentPage === page ? "active" : ""}`}
+                    >
+                      <button
+                        className="page-link"
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </button>
+                    </li>
+                  ))}
+
+                {currentPage < totalPages - 2 && (
+                  <li className="page-item disabled">
+                    <span className="page-link">...</span>
+                  </li>
+                )}
+
+                {totalPages > 1 && (
+                  <li
+                    className={`page-item ${
+                      currentPage === totalPages ? "active" : ""
+                    }`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage(totalPages)}
+                    >
+                      {totalPages}
+                    </button>
+                  </li>
+                )}
+
+                <li
+                  className={`page-item ${
+                    currentPage === totalPages ? "disabled" : ""
+                  }`}
+                >
+                  <button
+                    className="page-link"
+                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                  >
+                    ›
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          </div>
+
           <CreateFormModal
             role="user"
             title={isEditMode ? "Edit Admin" : "Add New Admin"}
@@ -551,29 +557,39 @@ function UserDashboard() {
           <ConfirmDeleteModal
             show={deleteModal}
             message="Are you sure you want to delete the selected admin(s)?"
+            isDeleting={isDeleting}
             onConfirm={async () => {
-              if (selectedIds.length > 0) {
-                await deleteAdmin({
-                  admin_ids: selectedIds,
-                });
+              try {
+                setIsDeleting(true);
 
-                setAdmins((prev) =>
-                  prev.filter((org) => !selectedIds.includes(org.id)),
-                );
+                if (selectedIds.length > 0) {
+                  await deleteAdmin({
+                    admin_ids: selectedIds,
+                  });
 
-                setSelectedIds([]);
-              } else if (deleteId) {
-                await deleteOrganization({
-                  org_ids: [deleteId],
-                });
+                  setAdmins((prev) =>
+                    prev.filter((admin) => !selectedIds.includes(admin.id)),
+                  );
 
-                setOrganizations((prev) =>
-                  prev.filter((org) => org.id !== deleteId),
-                );
+                  setSelectedIds([]);
+                } else if (deleteId) {
+                  await deleteAdmin({
+                    admin_ids: [deleteId],
+                  });
+
+                  setAdmins((prev) =>
+                    prev.filter((admin) => admin.id !== deleteId),
+                  );
+                }
+
+                toast.success("Deleted successfully!");
+              } catch (error) {
+                toast.error("Delete failed!");
+              } finally {
+                setIsDeleting(false);
+                setDeleteModal(false);
+                setDeleteId(null);
               }
-
-              setDeleteModal(false);
-              setDeleteId(null);
             }}
             onCancel={() => setDeleteModal(false)}
           />

@@ -19,7 +19,9 @@ const EditCustomerModal = ({
     phone: "",
     location: "",
   });
+
   const [loading, setLoading] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const currentCustomerId =
     bulkEditIds.length > 0 ? bulkEditIds[bulkEditIndex] : customerId;
 
@@ -28,6 +30,18 @@ const EditCustomerModal = ({
       fetchCustomerDetails();
     }
   }, [show, currentCustomerId]);
+
+  useEffect(() => {
+    if (show) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, [show]);
 
   const fetchCustomerDetails = async () => {
     try {
@@ -56,8 +70,10 @@ const EditCustomerModal = ({
 
   const handleUpdate = async () => {
     try {
-      setLoading(true);
+      setUpdating(true);
+
       const [city, country] = formData.location.split(",");
+
       const updatedData = {
         customer_id: currentCustomerId,
         first_name: formData.first_name,
@@ -67,29 +83,33 @@ const EditCustomerModal = ({
         city: city?.trim() || "",
         country: country?.trim() || "",
       };
+
       if (bulkEditIds.length > 0) {
         bulkUpdateRef.current.push(updatedData);
 
         if (bulkEditIndex < bulkEditIds.length - 1) {
           setBulkEditIndex(bulkEditIndex + 1);
-          setLoading(false);
+          setUpdating(false);
           return;
         } else {
           await UpdateCustomer(bulkUpdateRef.current);
           toast.success("All customers updated successfully!");
+
           bulkUpdateRef.current = [];
           setBulkEditIds([]);
-          onClose();
+
+          onClose(true);
         }
       } else {
         await UpdateCustomer([updatedData]);
         toast.success("Customer updated successfully!");
-        onClose();
+
+        onClose(true);
       }
     } catch (error) {
       toast.error("Update failed!");
     } finally {
-      setLoading(false);
+      setUpdating(false);
     }
   };
 
@@ -182,9 +202,14 @@ const EditCustomerModal = ({
               <button
                 className="btn btn-primary me-2"
                 onClick={handleUpdate}
-                disabled={loading}
+                disabled={updating}
               >
-                Update
+                {updating
+                  ? "Updating..."
+                  : bulkEditIds.length > 0 &&
+                      bulkEditIndex < bulkEditIds.length - 1
+                    ? "Update & Next"
+                    : "Update"}
               </button>
             )
           ) : (
@@ -197,7 +222,7 @@ const EditCustomerModal = ({
             </button>
           )}
 
-          <button className="btn btn-secondary" onClick={onClose}>
+          <button className="btn btn-secondary" onClick={() => onClose(false)}>
             Cancel
           </button>
         </div>

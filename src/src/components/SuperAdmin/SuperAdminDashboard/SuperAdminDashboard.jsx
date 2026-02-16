@@ -39,11 +39,11 @@ function SuperAdminDashboard() {
   const [totalCount, setTotalCount] = useState(0);
   const [bulkEditIndex, setBulkEditIndex] = useState(0);
   const [bulkEditIds, setBulkEditIds] = useState([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const [bulkUpdatePayload, setBulkUpdatePayload] = useState([]);
   const bulkUpdateRef = useRef([]);
-
   const pageSize = 20;
+
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
   };
@@ -165,21 +165,16 @@ function SuperAdminDashboard() {
     try {
       setIsLoading(true);
       setIsEditMode(true);
-
       const res = await ShowOrganizationDetail(id);
-
       if (res.status === 200) {
         const data = res.data;
-
         setEditData(data);
-
         setOrganizationName(data.name || "");
         setEmail(data.email || "");
         setPhoneNo(data.phone_no || "");
         setLocation(data.location || "");
         setWebsite(data.website || "");
         setDescription(data.description || "");
-
         setShowModal(true);
       }
     } catch (error) {
@@ -194,7 +189,6 @@ function SuperAdminDashboard() {
       toast.error("All required fields must be filled!");
       return;
     }
-
     const updatedData = {
       org_id: editData.id,
       oname: organization_name,
@@ -204,9 +198,7 @@ function SuperAdminDashboard() {
       website: website || "",
       description: description || "",
     };
-
     bulkUpdateRef.current.push(updatedData);
-
     if (bulkEditIds.length > 0 && bulkEditIndex < bulkEditIds.length - 1) {
       const nextIndex = bulkEditIndex + 1;
       setBulkEditIndex(nextIndex);
@@ -214,9 +206,7 @@ function SuperAdminDashboard() {
     } else if (bulkEditIds.length > 0) {
       try {
         await UpdateOrganizationDetails(bulkUpdateRef.current);
-
         toast.success("All organizations updated successfully!");
-
         bulkUpdateRef.current = [];
         setBulkEditIds([]);
         setBulkEditIndex(0);
@@ -256,7 +246,6 @@ function SuperAdminDashboard() {
       toast.error("Please select at least one organization");
       return;
     }
-
     bulkUpdateRef.current = [];
     setBulkEditIds(selectedIds);
     setBulkEditIndex(0);
@@ -308,12 +297,10 @@ function SuperAdminDashboard() {
           {selectedIds.length > 0 && (
             <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded">
               <span>{selectedIds.length} selected</span>
-
               <div className="d-flex gap-2">
                 <button className="customer_edit_btn" onClick={handleBulkEdit}>
                   <MdModeEdit /> Edit
                 </button>
-
                 <button className="delete" onClick={() => setDeleteModal(true)}>
                   <MdDelete />
                   Delete
@@ -394,6 +381,7 @@ function SuperAdminDashboard() {
                           <button
                             className="customer_edit_btn"
                             onClick={() => handleEdit(item.id)}
+                            disabled={selectedIds.length > 0}
                           >
                             <MdModeEdit /> Edit
                           </button>
@@ -403,6 +391,13 @@ function SuperAdminDashboard() {
                             onClick={() => {
                               setDeleteId(item.id);
                               setDeleteModal(true);
+                            }}
+                            disabled={selectedIds.length > 0}
+                            style={{
+                              cursor:
+                                selectedIds.length > 0
+                                  ? "not-allowed"
+                                  : "pointer",
                             }}
                           >
                             <MdDelete /> Delete
@@ -602,26 +597,39 @@ function SuperAdminDashboard() {
           <ConfirmDeleteModal
             show={deleteModal}
             message="Are you sure you want to delete selected organization(s)?"
+            isDeleting={isDeleting}
             onConfirm={async () => {
-              if (selectedIds.length > 0) {
-                await deleteOrganization({
-                  org_ids: selectedIds,
-                });
-                setOrganizations((prev) =>
-                  prev.filter((org) => !selectedIds.includes(org.id)),
-                );
-                setSelectedIds([]);
-              } else if (deleteId) {
-                await deleteOrganization({
-                  org_ids: [deleteId],
-                });
+              try {
+                setIsDeleting(true);
 
-                setOrganizations((prev) =>
-                  prev.filter((org) => org.id !== deleteId),
-                );
+                if (selectedIds.length > 0) {
+                  await deleteOrganization({
+                    org_ids: selectedIds,
+                  });
+
+                  setOrganizations((prev) =>
+                    prev.filter((org) => !selectedIds.includes(org.id)),
+                  );
+
+                  setSelectedIds([]);
+                } else if (deleteId) {
+                  await deleteOrganization({
+                    org_ids: [deleteId],
+                  });
+
+                  setOrganizations((prev) =>
+                    prev.filter((org) => org.id !== deleteId),
+                  );
+                }
+
+                toast.success("Deleted successfully!");
+              } catch (error) {
+                toast.error("Delete failed!");
+              } finally {
+                setIsDeleting(false);
+                setDeleteModal(false);
+                setDeleteId(null);
               }
-              setDeleteModal(false);
-              setDeleteId(null);
             }}
             onCancel={() => setDeleteModal(false)}
           />

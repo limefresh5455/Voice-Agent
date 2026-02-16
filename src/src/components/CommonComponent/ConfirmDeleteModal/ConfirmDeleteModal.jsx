@@ -1,7 +1,12 @@
-import React from "react";
 import "./ConfirmDeleteModal.css";
 
-const ConfirmDeleteModal = ({ show, message, onConfirm, onCancel }) => {
+const ConfirmDeleteModal = ({
+  show,
+  message,
+  onConfirm,
+  onCancel,
+  isDeleting,
+}) => {
   if (!show) return null;
 
   return (
@@ -9,11 +14,21 @@ const ConfirmDeleteModal = ({ show, message, onConfirm, onCancel }) => {
       <div className="deleteModalBox">
         <h3 className="deleteModalTitle">Confirm Delete</h3>
         <p className="deleteModalText">{message}</p>
+
         <div className="deleteModalActions">
-          <button className="deleteBtn" onClick={onConfirm}>
-            Delete
+          <button
+            className="btn btn-danger"
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
           </button>
-          <button className="cancelBtn" onClick={onCancel}>
+
+          <button
+            className="cancelBtn"
+            onClick={onCancel}
+            disabled={isDeleting}
+          >
             Cancel
           </button>
         </div>

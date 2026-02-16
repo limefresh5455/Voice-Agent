@@ -140,15 +140,13 @@ export const UploadAndProcessFile = async (user_id, formdata) => {
   }
 };
 //-----------------------------------------------------------------------------
-export const GetFormDetails = async () => {
-  try {
-    const res = await axiosInstance.get(`/admin/dashboard/all-customer-forms`);
-
-    return res.data;
-  } catch (error) {
-    console.error("Error fetching all customer forms:", error);
-    throw error;
-  }
+export const GetFormDetails = async (page = 1, page_size = 20) => {
+  return axiosInstance.get(`/admin/dashboard/all-customer-forms`, {
+    params: {
+      page: page,
+      page_size: page_size,
+    },
+  });
 };
 
 export const ShowCustomerFormDetails = async (form_id) => {
@@ -276,14 +274,13 @@ export const DeleteCustomerService = async (payload) => {
   }
 };
 
-export const GetAllServices = async () => {
-  try {
-    const res = await axiosInstance.get(`/admin/org/services`);
-    return res;
-  } catch (error) {
-    console.error("Error fetching all customer forms:", error);
-    throw error;
-  }
+export const GetAllServices = async (page = 1, page_size = 20) => {
+  return axiosInstance.get(`/admin/org/services`, {
+    params: {
+      page: page,
+      page_size: page_size,
+    },
+  });
 };
 
 export const CreateServices = async (payload) => {
@@ -297,15 +294,15 @@ export const CreateServices = async (payload) => {
     throw error;
   }
 };
-export const editServices = async ({ customer_id, service_id, ...payload }) => {
+export const editServices = async (payload) => {
   try {
     const res = await axiosInstance.put(
-      `/admin/customers/${customer_id}/services/${service_id}`,
+      "/admin/customers/services/edit",
       payload,
     );
     return res.data;
   } catch (error) {
-    console.log("Error updating service:", error);
+    console.log("Error updating services:", error);
     throw error;
   }
 };
@@ -335,14 +332,13 @@ export const CreateCustomer = async (payload) => {
   }
 };
 
-export const GetAllCustomers = async () => {
-  try {
-    const res = await axiosInstance.get(`/admin/dashboard/customer/list`);
-    return res;
-  } catch (error) {
-    console.error("Error fetching all customer:", error);
-    throw error;
-  }
+export const GetAllCustomers = async (page = 1, page_size = 20) => {
+  return axiosInstance.get(`/admin/dashboard/customer/list`, {
+    params: {
+      page: page,
+      page_size: page_size,
+    },
+  });
 };
 
 export const GetAdminCustomerDetails = async (customer_id) => {
@@ -357,11 +353,11 @@ export const GetAdminCustomerDetails = async (customer_id) => {
   }
 };
 
-export const editAdminCustomer = async (customerData) => {
+export const editAdminCustomer = async (payload) => {
   try {
     const res = await axiosInstance.put(
       "/admin/dashboard/customer/edit",
-      customerData,
+      payload,
     );
     return res.data;
   } catch (error) {
@@ -386,14 +382,13 @@ export const DeleteAdminCustomer = async (payload) => {
 
 // ------------------------------------------------------------------------
 
-export const GetAllLeads = async () => {
-  try {
-    const res = await axiosInstance.get(`/admin/dashboard/all-lead-forms`);
-    return res;
-  } catch (error) {
-    console.error("Error fetching all customer:", error);
-    throw error;
-  }
+export const GetAllLeads = async (page = 1, page_size = 20) => {
+  return axiosInstance.get(`/admin/dashboard/all-lead-forms`, {
+    params: {
+      page: page,
+      page_size: page_size,
+    },
+  });
 };
 
 export const deleteLead = async (payload) => {

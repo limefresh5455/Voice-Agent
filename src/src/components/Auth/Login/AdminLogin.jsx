@@ -51,7 +51,7 @@ const AdminLogin = () => {
           };
           sessionStorage.setItem(
             "admin_credentials",
-            JSON.stringify(loginResponse)
+            JSON.stringify(loginResponse),
           );
           setUser(loginResponse);
           setTimeout(() => {

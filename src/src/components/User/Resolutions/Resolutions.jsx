@@ -7,6 +7,7 @@ import {
   deleteIssue,
   GetIssues,
   ShowIssuesDetail,
+  UpdateIssues,
   UploadIssuesFile,
 } from "../UserServices/UserServices";
 import { toast } from "react-toastify";
@@ -36,11 +37,50 @@ function Resolutions() {
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [uploadedFileData, setUploadedFileData] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
-  const rowsPerPage = 5;
-  const indexOfLastRow = currentPage * rowsPerPage;
-  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentIssues = issues.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(issues.length / rowsPerPage);
+  const [bulkEditIndex, setBulkEditIndex] = useState(0);
+  const bulkUpdateRef = useRef([]);
+  const [isBulkEditing, setIsBulkEditing] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [currentMappingIndex, setCurrentMappingIndex] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [allMappings, setAllMappings] = useState([]);
+  const rowsPerPage = 20;
+
+  const handleFinalSubmit = async (mappings) => {
+    try {
+      setLoading(true);
+
+      const formData = new FormData();
+
+      mappings.forEach((item, index) => {
+        formData.append("files", item.file);
+        formData.append(`mappings[${index}]`, JSON.stringify(item.mapping));
+        formData.append(`header_rows[${index}]`, item.headerRow);
+      });
+
+      await ImportIssuesWithMapping(formData);
+
+      toast.success("All files imported successfully!");
+    } catch (error) {
+      toast.error("Import failed!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNext = (data) => {
+    const updatedMappings = [...allMappings, data];
+    setAllMappings(updatedMappings);
+
+    if (currentIndex < files.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    } else {
+      handleFinalSubmit(updatedMappings);
+    }
+  };
   const getPagination = (current, total) => {
     const delta = 2;
     const pages = [];
@@ -73,11 +113,20 @@ function Resolutions() {
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
   };
-  const fetchIssues = async () => {
+  const fetchIssues = async (page = 1) => {
     try {
       setLoading(true);
-      const data = await GetIssues(organization_id);
-      setIssues(Array.isArray(data) ? data : []);
+
+      const res = await GetIssues(organization_id, page, rowsPerPage);
+
+      if (res.status === 200) {
+        const responseData = res.data;
+
+        setIssues(responseData.data || []);
+        setTotalCount(responseData.total || 0);
+        setTotalPages(responseData.total_pages || 1);
+        setCurrentPage(responseData.page || 1);
+      }
     } catch (error) {
       console.error("API ERROR", error?.response || error);
       toast.error("Failed to fetch issues");
@@ -88,44 +137,57 @@ function Resolutions() {
 
   useEffect(() => {
     if (!organization_id) return;
-    fetchIssues();
-  }, [organization_id]);
+    fetchIssues(currentPage);
+  }, [organization_id, currentPage]);
+
   const fileInputRef = useRef(null);
   const handleAddIssuesClick = () => {
     fileInputRef.current.click();
   };
 
   const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
 
     const allowedTypes = ["application/json", "text/csv"];
     const allowedExtensions = [".json", ".csv"];
-    const fileExtension = file.name
-      .slice(file.name.lastIndexOf("."))
-      .toLowerCase();
 
-    if (
-      !allowedTypes.includes(file.type) &&
-      !allowedExtensions.includes(fileExtension)
-    ) {
+    const validFiles = files.filter((file) => {
+      const fileExtension = file.name
+        .slice(file.name.lastIndexOf("."))
+        .toLowerCase();
+
+      return (
+        allowedTypes.includes(file.type) ||
+        allowedExtensions.includes(fileExtension)
+      );
+    });
+
+    if (validFiles.length !== files.length) {
       toast.error("Only JSON or CSV files are allowed");
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const res = await UploadIssuesFile(formData);
+      const formData = new FormData();
 
-      toast.success("File uploaded successfully");
-
-      setUploadedFileData({
-        ...res.data,
-        file: file,
+      files.forEach((file) => {
+        formData.append("files", file); // IMPORTANT
       });
 
+      const res = await UploadIssuesFile(formData);
+
+      toast.success("Files uploaded successfully");
+
+      // Save all results
+      setUploadedFiles(
+        res.data.results.map((result, index) => ({
+          ...result,
+          file: files[index],
+        })),
+      );
+
+      setCurrentMappingIndex(0);
       setShowMappingModal(true);
     } catch (error) {
       toast.error("Upload failed");
@@ -183,9 +245,36 @@ function Resolutions() {
   };
 
   const handleSaveEdit = async (updatedData) => {
-    console.log("Updated data:", updatedData);
-    toast.success("Issue updated successfully (demo)");
-    fetchIssues();
+    try {
+      if (isBulkEditing && selectedIds.length > 0) {
+        bulkUpdateRef.current.push(updatedData);
+
+        if (bulkEditIndex < selectedIds.length - 1) {
+          const nextIndex = bulkEditIndex + 1;
+          setBulkEditIndex(nextIndex);
+          handleEdit(selectedIds[nextIndex]);
+          return;
+        } else {
+          await UpdateIssues(bulkUpdateRef.current);
+
+          toast.success("All issues updated successfully!");
+
+          bulkUpdateRef.current = [];
+          setSelectedIds([]);
+          setIsBulkEditing(false);
+          setShowEditModal(false);
+          fetchIssues();
+        }
+      } else {
+        await UpdateIssues([updatedData]);
+        toast.success("Issue updated successfully!");
+        setShowEditModal(false);
+        fetchIssues();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Update failed!");
+    }
   };
 
   useEffect(() => {
@@ -225,10 +314,10 @@ function Resolutions() {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === currentIssues.length) {
+    if (selectedIds.length === issues.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(currentIssues.map((item) => item.issue_id));
+      setSelectedIds(issues.map((item) => item.issue_id));
     }
   };
 
@@ -265,19 +354,36 @@ function Resolutions() {
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 style={{ display: "none" }}
+                multiple
               />
             </div>
 
             {selectedIds.length > 0 && (
               <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded">
                 <span>{selectedIds.length} selected</span>
+                <div className="d-flex gap-2">
+                  <button
+                    className="customer_edit_btn"
+                    onClick={() => {
+                      if (selectedIds.length > 0) {
+                        setIsBulkEditing(true);
+                        setBulkEditIndex(0);
+                        handleEdit(selectedIds[0]);
+                      }
+                    }}
+                  >
+                    <MdModeEdit />
+                    Edit
+                  </button>
 
-                <button
-                  className="btn btn-danger btn-sm"
-                  onClick={() => setDeleteModal(true)}
-                >
-                  Delete Selected
-                </button>
+                  <button
+                    className="delete"
+                    onClick={() => setDeleteModal(true)}
+                  >
+                    <MdDelete />
+                    Delete
+                  </button>
+                </div>
               </div>
             )}
 
@@ -289,8 +395,8 @@ function Resolutions() {
                       <input
                         type="checkbox"
                         checked={
-                          currentIssues.length > 0 &&
-                          selectedIds.length === currentIssues.length
+                          issues.length > 0 &&
+                          selectedIds.length === issues.length
                         }
                         onChange={handleSelectAll}
                       />
@@ -318,7 +424,7 @@ function Resolutions() {
                       </td>
                     </tr>
                   ) : (
-                    currentIssues.map((item, index) => (
+                    issues.map((item, index) => (
                       <tr key={item.issue_id || index}>
                         <td>
                           <input
@@ -343,6 +449,13 @@ function Resolutions() {
                           <div className="action_customer_btn">
                             <button
                               className="customer_edit_btn"
+                              disabled={selectedIds.length > 0}
+                              style={{
+                                cursor:
+                                  selectedIds.length > 0
+                                    ? "not-allowed"
+                                    : "pointer",
+                              }}
                               onClick={() => handleEdit(item.issue_id)}
                             >
                               <MdModeEdit /> Edit
@@ -350,6 +463,13 @@ function Resolutions() {
 
                             <button
                               className="delete"
+                              disabled={selectedIds.length > 0}
+                              style={{
+                                cursor:
+                                  selectedIds.length > 0
+                                    ? "not-allowed"
+                                    : "pointer",
+                              }}
                               onClick={() => {
                                 setDeleteId(item.issue_id);
                                 setDeleteModal(true);
@@ -366,39 +486,95 @@ function Resolutions() {
               </table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="pagination">
-                <button
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                >
-                  ‹
-                </button>
-
-                {getPagination(currentPage, totalPages).map((item, index) =>
-                  item === "..." ? (
-                    <span key={index} className="dots">
-                      ...
-                    </span>
-                  ) : (
+            <div className="d-flex justify-content-center mt-4">
+              <nav>
+                <ul className="pagination custom-pagination">
+                  <li
+                    className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
+                  >
                     <button
-                      key={index}
-                      className={currentPage === item ? "active" : ""}
-                      onClick={() => setCurrentPage(item)}
+                      className="page-link"
+                      onClick={() => setCurrentPage((prev) => prev - 1)}
                     >
-                      {item}
+                      ‹
                     </button>
-                  ),
-                )}
+                  </li>
 
-                <button
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                >
-                  ›
-                </button>
-              </div>
-            )}
+                  <li
+                    className={`page-item ${currentPage === 1 ? "active" : ""}`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage(1)}
+                    >
+                      1
+                    </button>
+                  </li>
+
+                  {currentPage > 3 && (
+                    <li className="page-item disabled">
+                      <span className="page-link">...</span>
+                    </li>
+                  )}
+
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(
+                      (page) =>
+                        page !== 1 &&
+                        page !== totalPages &&
+                        page >= currentPage - 1 &&
+                        page <= currentPage + 1,
+                    )
+                    .map((page) => (
+                      <li
+                        key={page}
+                        className={`page-item ${currentPage === page ? "active" : ""}`}
+                      >
+                        <button
+                          className="page-link"
+                          onClick={() => setCurrentPage(page)}
+                        >
+                          {page}
+                        </button>
+                      </li>
+                    ))}
+
+                  {currentPage < totalPages - 2 && (
+                    <li className="page-item disabled">
+                      <span className="page-link">...</span>
+                    </li>
+                  )}
+
+                  {totalPages > 1 && (
+                    <li
+                      className={`page-item ${
+                        currentPage === totalPages ? "active" : ""
+                      }`}
+                    >
+                      <button
+                        className="page-link"
+                        onClick={() => setCurrentPage(totalPages)}
+                      >
+                        {totalPages}
+                      </button>
+                    </li>
+                  )}
+
+                  <li
+                    className={`page-item ${
+                      currentPage === totalPages ? "disabled" : ""
+                    }`}
+                  >
+                    <button
+                      className="page-link"
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                    >
+                      ›
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           </div>
         </div>
         <IssueDetailsModal
@@ -413,13 +589,17 @@ function Resolutions() {
           data={editModalData ? editModalData.data : null}
           onClose={() => setShowEditModal(false)}
           onSave={handleSaveEdit}
+          isBulkEditing={isBulkEditing}
         />
 
         <ConfirmDeleteModal
           show={deleteModal}
           message="Are you sure you want to delete selected issue(s)?"
+          isDeleting={isDeleting}
           onConfirm={async () => {
             try {
+              setIsDeleting(true);
+
               if (selectedIds.length > 0) {
                 await deleteIssue({
                   issue_ids: selectedIds,
@@ -440,18 +620,21 @@ function Resolutions() {
                 );
               }
 
-              toast.error("Issue deleted successfully!");
+              toast.success("Issue deleted successfully!");
             } catch (error) {
               toast.error("Failed to delete issue!");
               console.error(error);
             } finally {
+              setIsDeleting(false);
               setDeleteModal(false);
               setDeleteId(null);
             }
           }}
           onCancel={() => {
-            setDeleteModal(false);
-            setDeleteId(null);
+            if (!isDeleting) {
+              setDeleteModal(false);
+              setDeleteId(null);
+            }
           }}
         />
 
@@ -465,7 +648,17 @@ function Resolutions() {
         <CsvMappingModal
           show={showMappingModal}
           onClose={() => setShowMappingModal(false)}
-          fileData={uploadedFileData}
+          fileData={uploadedFiles[currentMappingIndex]}
+          currentIndex={currentMappingIndex}
+          totalFiles={uploadedFiles.length}
+          onNext={() => {
+            if (currentMappingIndex < uploadedFiles.length - 1) {
+              setCurrentMappingIndex((prev) => prev + 1);
+            } else {
+              setShowMappingModal(false);
+              fetchIssues();
+            }
+          }}
         />
       </div>
     </>

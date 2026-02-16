@@ -1,6 +1,5 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import "./WelcomePage.css";
 
 const WelcomePage = () => {
   const navigate = useNavigate();
@@ -12,6 +11,13 @@ const WelcomePage = () => {
         <p className="welcome-subtitle">Choose a login option to continue</p>
 
         <div className="button-group">
+          <button
+            className="login-btn super-btn"
+            onClick={() => navigate("/super-admin-login")}
+          >
+            Super Admin Login
+          </button>
+
           <button
             className="login-btn org-btn"
             onClick={() => navigate("/organization-login")}

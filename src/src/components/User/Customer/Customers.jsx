@@ -37,18 +37,15 @@ function Customers() {
   const org_name = org_Name.replace(/\s+/g, "");
   const [editModal, setEditModal] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
-
   const bulkUpdateRef = useRef([]);
   const [bulkEditIds, setBulkEditIds] = useState([]);
   const [bulkEditIndex, setBulkEditIndex] = useState(0);
-
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 5;
-  const indexOfLastRow = currentPage * rowsPerPage;
-  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentCategories = categories.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(categories.length / rowsPerPage);
+  const [pageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const getPagination = (current, total) => {
     const delta = 2;
@@ -63,10 +60,8 @@ function Customers() {
         pages.push(i);
       }
     }
-
     const result = [];
     let last = null;
-
     for (let page of pages) {
       if (last) {
         if (page - last === 2) {
@@ -78,7 +73,6 @@ function Customers() {
       result.push(page);
       last = page;
     }
-
     return result;
   };
 
@@ -97,32 +91,44 @@ function Customers() {
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
   };
-  const GetCustomers = async () => {
+  const GetCustomers = async (page = 1) => {
     try {
       setIsLoading(true);
-      const res = await GetCustomersList();
-      console.log(res.data, "GetAllCustomersList");
-      if (res.status === 200) {
-        const sortedCategories = [...(res.data || [])].reverse();
 
-        setCategories(sortedCategories);
-        const formatted = sortedCategories.map((cat) => ({
-          value: cat.id,
-          label: cat.name,
-          issues: cat.issues,
-        }));
-        setCategoryOptionsState(formatted);
+      const res = await GetCustomersList(page, pageSize);
+
+      if (res.status === 200) {
+        const responseData = res.data;
+
+        setCategories(responseData.data || []);
+        setTotalPages(responseData.total_pages);
+        setTotalCount(responseData.total);
       }
     } catch (err) {
       if (err?.response?.status === 401) handleLogout();
-      console.error("Error fetching categories:", err);
+      console.error("Error fetching customers:", err);
     } finally {
       setIsLoading(false);
     }
   };
+
   useEffect(() => {
-    GetCustomers();
-  }, []);
+    GetCustomers(currentPage);
+  }, [currentPage]);
+
+  useEffect(() => {
+    const pageWrapper = document.getElementById("page-content-wrapper");
+
+    if (editModal) {
+      pageWrapper?.classList.add("no-scroll");
+    } else {
+      pageWrapper?.classList.remove("no-scroll");
+    }
+
+    return () => {
+      pageWrapper?.classList.remove("no-scroll");
+    };
+  }, [editModal]);
 
   const handleJsonUpload = async (e) => {
     const file = e.target.files[0];
@@ -151,25 +157,6 @@ function Customers() {
     }
     e.target.value = "";
   };
-  const handleDelete = async (id) => {
-    console.log("Delete id:", id);
-    try {
-      const res = await DeleteCustomer(id);
-
-      if (res.status === 200 || res.status === 201) {
-        toast.error("Customer deleted successfully!");
-        GetCustomers();
-      }
-    } catch (error) {
-      console.error("Delete error:", error);
-
-      if (error?.response?.status === 401) {
-        handleLogout();
-      } else {
-        toast.error("Failed to delete customer!");
-      }
-    }
-  };
 
   const handleSelectRow = (id) => {
     setSelectedIds((prev) =>
@@ -178,10 +165,10 @@ function Customers() {
   };
 
   const handleSelectAll = () => {
-    if (selectedIds.length === currentCategories.length) {
+    if (selectedIds.length === categories.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(currentCategories.map((item) => item.id));
+      setSelectedIds(categories.map((item) => item.id));
     }
   };
 
@@ -260,8 +247,8 @@ function Customers() {
                     <input
                       type="checkbox"
                       checked={
-                        currentCategories.length > 0 &&
-                        selectedIds.length === currentCategories.length
+                        categories.length > 0 &&
+                        selectedIds.length === categories.length
                       }
                       onChange={handleSelectAll}
                     />
@@ -274,14 +261,14 @@ function Customers() {
               </thead>
 
               <tbody>
-                {currentCategories.length === 0 ? (
+                {categories.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="text-center text-muted">
                       No customers found
                     </td>
                   </tr>
                 ) : (
-                  currentCategories.map((row) => (
+                  categories.map((row) => (
                     <tr key={row.id}>
                       <td>
                         <input
@@ -298,6 +285,13 @@ function Customers() {
                         <div className="action_customer_btn">
                           <button
                             className="customer_edit_btn"
+                            disabled={selectedIds.length > 0}
+                            style={{
+                              cursor:
+                                selectedIds.length > 0
+                                  ? "not-allowed"
+                                  : "pointer",
+                            }}
                             onClick={() => {
                               setSelectedCustomerId(row.id);
                               setEditModal(true);
@@ -308,6 +302,13 @@ function Customers() {
 
                           <button
                             className="delete"
+                            disabled={selectedIds.length > 0}
+                            style={{
+                              cursor:
+                                selectedIds.length > 0
+                                  ? "not-allowed"
+                                  : "pointer",
+                            }}
                             onClick={() => {
                               setDeleteId(row.id);
                               setDeleteModal(true);
@@ -324,47 +325,52 @@ function Customers() {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="pagination">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(currentPage - 1)}
-              >
-                ‹
-              </button>
+          <div className="pagination">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => prev - 1)}
+            >
+              ‹
+            </button>
 
-              {getPagination(currentPage, totalPages).map((item, index) =>
-                item === "..." ? (
-                  <span key={index} className="dots">
-                    ...
-                  </span>
-                ) : (
-                  <button
-                    key={index}
-                    className={currentPage === item ? "active" : ""}
-                    onClick={() => setCurrentPage(item)}
-                  >
-                    {item}
-                  </button>
-                ),
-              )}
+            {getPagination(currentPage, totalPages).map((item, index) =>
+              item === "..." ? (
+                <span key={index} className="dots">
+                  ...
+                </span>
+              ) : (
+                <button
+                  key={index}
+                  className={currentPage === item ? "active" : ""}
+                  onClick={() => setCurrentPage(item)}
+                >
+                  {item}
+                </button>
+              ),
+            )}
 
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(currentPage + 1)}
-              >
-                ›
-              </button>
-            </div>
-          )}
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((prev) => prev + 1)}
+            >
+              ›
+            </button>
+          </div>
 
           <EditCustomerModal
             show={editModal}
             customerId={selectedCustomerId}
-            onClose={() => {
+            onClose={(isUpdated) => {
               setEditModal(false);
               setSelectedCustomerId(null);
-              GetCustomers();
+
+              if (isUpdated) {
+                setSelectedIds([]);
+                setBulkEditIds([]);
+                setBulkEditIndex(0);
+              }
+
+              GetCustomers(currentPage);
             }}
             bulkEditIds={bulkEditIds}
             bulkEditIndex={bulkEditIndex}
@@ -376,40 +382,36 @@ function Customers() {
           <ConfirmDeleteModal
             show={deleteModal}
             message="Are you sure you want to delete selected customer(s)?"
+            isDeleting={isDeleting}
             onConfirm={async () => {
               try {
+                setIsDeleting(true);
+
                 if (selectedIds.length > 0) {
-                  await DeleteCustomer({
-                    customer_ids: selectedIds,
-                  });
-
-                  setCategories((prev) =>
-                    prev.filter((cust) => !selectedIds.includes(cust.id)),
-                  );
-
-                  setSelectedIds([]);
+                  await DeleteCustomer({ customer_ids: selectedIds });
                 } else if (deleteId) {
-                  await DeleteCustomer({
-                    customer_ids: [deleteId],
-                  });
-
-                  setCategories((prev) =>
-                    prev.filter((cust) => cust.id !== deleteId),
-                  );
+                  await DeleteCustomer({ customer_ids: [deleteId] });
                 }
 
-                toast.error("Customer deleted successfully!");
+                toast.success("Customer deleted successfully!");
+
+                setSelectedIds([]);
+                setDeleteId(null);
+
+                await GetCustomers(currentPage);
               } catch (error) {
                 toast.error("Failed to delete customer!");
                 console.error(error);
               } finally {
+                setIsDeleting(false);
                 setDeleteModal(false);
-                setDeleteId(null);
               }
             }}
             onCancel={() => {
-              setDeleteModal(false);
-              setDeleteId(null);
+              if (!isDeleting) {
+                setDeleteModal(false);
+                setDeleteId(null);
+              }
             }}
           />
 
