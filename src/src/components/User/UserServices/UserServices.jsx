@@ -248,6 +248,7 @@ export const GetIssuesForCategory = async (category_id) => {
 
 export const ImportIssuesWithMapping = async (formData) => {
   try {
+    console.log("/org/issues/import-with-mapping");
     const res = await axiosInstance.post(
       `/org/issues/import-with-mapping`,
       formData,

@@ -26,8 +26,7 @@ function IssueDetailsModal({ show, loading, data, onClose }) {
                     <strong>Category:</strong> {data.category_name}
                   </p>
                   <p>
-                    <strong>Routing Channel:</strong>{" "}
-                    {data.issue_routing_channel}
+                    <strong>Routing Channel:</strong> {data.routing_channel}
                   </p>
                   <p>
                     <strong>SLA:</strong> {data.suggested_sla}

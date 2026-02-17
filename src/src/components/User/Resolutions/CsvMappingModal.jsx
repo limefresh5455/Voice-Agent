@@ -10,6 +10,10 @@ function CsvMappingModal({
   totalFiles,
   onNext,
 }) {
+  console.log("currentMappingIndex", currentIndex);
+  console.log("fileData", fileData);
+  // console.log("updatedMappings", updatedMappings);
+
   const [mapping, setMapping] = useState({});
   const [loading, setLoading] = useState(false);
   const [headerRow, setHeaderRow] = useState(0);
@@ -20,6 +24,7 @@ function CsvMappingModal({
   const headers = preview.json_headers || preview.csv_headers || [];
 
   const file = fileData?.file;
+  console.log(file, "file");
 
   const isJsonFile =
     file?.type === "application/json" ||
@@ -66,14 +71,27 @@ function CsvMappingModal({
         return;
       }
 
-      onNext({
-        file,
-        mapping,
-        headerRow,
-      });
+      const formData = new FormData();
+      formData.append("files", file);
+      formData.append("mapping", JSON.stringify(mapping));
+      formData.append("header_row", String(headerRow));
+
+      setLoading(true);
+
+      const response = await ImportIssuesWithMapping(formData);
+
+      if (response.status === 200) {
+        toast.success("File imported successfully!");
+
+        onNext();
+      } else {
+        toast.error("Failed to import file.");
+      }
     } catch (error) {
       console.error(error);
       toast.error("Something went wrong!");
+    } finally {
+      setLoading(false);
     }
   };
 

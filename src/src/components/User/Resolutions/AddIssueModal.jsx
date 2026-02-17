@@ -46,7 +46,7 @@ const AddIssueModal = ({ show, onClose, organization, onIssueAdded }) => {
               uniqueCategories.push({
                 id: item.category_id,
                 name: item.category_name,
-                routing_channel: item.issue_routing_channel,
+                routing_channel: item.routing_channel,
                 suggested_sla: item.suggested_sla,
                 priority: item.priority,
               });
@@ -157,7 +157,7 @@ const AddIssueModal = ({ show, onClose, organization, onIssueAdded }) => {
 
       categoryPayload = {
         name: newCategory.name,
-        issue_routing_channel: newCategory.routing_channel,
+        routing_channel: newCategory.routing_channel,
         suggested_sla: newCategory.suggested_sla,
         priority: newCategory.priority,
       };
@@ -168,7 +168,7 @@ const AddIssueModal = ({ show, onClose, organization, onIssueAdded }) => {
 
       categoryPayload = {
         name: selectedCategory?.name || "",
-        issue_routing_channel: selectedCategory?.routing_channel || "",
+        routing_channel: selectedCategory?.routing_channel || "",
         suggested_sla: selectedCategory?.suggested_sla || "",
         priority: selectedCategory?.priority || "",
       };

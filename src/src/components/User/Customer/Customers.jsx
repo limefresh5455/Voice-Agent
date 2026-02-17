@@ -24,7 +24,7 @@ function Customers() {
   const [isOpen, setIsOpen] = useState(true);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [categoryOptionsState, setCategoryOptionsState] = useState([]);
+
   const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteId, setDeleteId] = useState(null);

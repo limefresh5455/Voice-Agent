@@ -6,6 +6,7 @@ import Loading from "../../CommonComponent/Loading/Loading";
 import {
   deleteIssue,
   GetIssues,
+  ImportIssuesWithMapping,
   ShowIssuesDetail,
   UpdateIssues,
   UploadIssuesFile,
@@ -35,7 +36,7 @@ function Resolutions() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddIssueModal, setShowAddIssueModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
-  const [uploadedFileData, setUploadedFileData] = useState(null);
+
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkEditIndex, setBulkEditIndex] = useState(0);
   const bulkUpdateRef = useRef([]);
@@ -44,12 +45,16 @@ function Resolutions() {
   const [totalCount, setTotalCount] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  console.log(uploadedFiles, "uploadedFiles");
+
   const [currentMappingIndex, setCurrentMappingIndex] = useState(0);
-  const [currentIndex, setCurrentIndex] = useState(0);
+
   const [allMappings, setAllMappings] = useState([]);
   const rowsPerPage = 20;
 
   const handleFinalSubmit = async (mappings) => {
+    console.log(mappings, "mappings");
+
     try {
       setLoading(true);
 
@@ -72,15 +77,20 @@ function Resolutions() {
   };
 
   const handleNext = (data) => {
+    console.log(data, "data");
+
     const updatedMappings = [...allMappings, data];
     setAllMappings(updatedMappings);
 
-    if (currentIndex < files.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+    // Move to next file if there are more files
+    if (currentMappingIndex < uploadedFiles.length - 1) {
+      setCurrentMappingIndex(currentMappingIndex + 1); // Increment index to show next file
     } else {
+      // If it's the last file, submit all mappings
       handleFinalSubmit(updatedMappings);
     }
   };
+
   const getPagination = (current, total) => {
     const delta = 2;
     const pages = [];
@@ -436,7 +446,7 @@ function Resolutions() {
                         <td>{item.category_name}</td>
                         <td>{item.issue_name}</td>
                         <td>{item.suggested_sla || "-"}</td>
-                        <td>{item.issue_routing_channel || "NA"}</td>
+                        <td>{item.routing_channel || "NA"}</td>
                         <td>
                           <button
                             className="show_detail_btn"
@@ -651,6 +661,7 @@ function Resolutions() {
           fileData={uploadedFiles[currentMappingIndex]}
           currentIndex={currentMappingIndex}
           totalFiles={uploadedFiles.length}
+          // onNext={handleNext}
           onNext={() => {
             if (currentMappingIndex < uploadedFiles.length - 1) {
               setCurrentMappingIndex((prev) => prev + 1);

@@ -50,14 +50,10 @@ function UserDashboard() {
   const GetAdminsDetail = async (page = 1) => {
     try {
       setIsLoading(true);
-
       const res = await GetAdminsList(page, pageSize);
-
       if (res.status === 200) {
         const responseData = res.data;
-
         const adminList = responseData.data || [];
-
         setAdmins(
           adminList.map((item) => ({
             ...item,

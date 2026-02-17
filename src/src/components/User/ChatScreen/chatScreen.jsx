@@ -65,16 +65,6 @@ export const ChatScreen = () => {
     },
     Ai_agent_solution: "",
   });
-  const [nonVerifiedLeadsFormData, setNonVerifiedLeadsFormData] = useState({
-    org_id: orgId || 0,
-    name: "",
-    phone: "",
-    email: "",
-    query: "",
-    title: "",
-    description: "",
-    priority: "",
-  });
 
   const scrollToBottom = () => {
     if (chatRef.current) {
@@ -113,16 +103,6 @@ export const ChatScreen = () => {
 
     recognitionRef.current = recognition;
   }, []);
-
-  const handleMicClick = () => {
-    if (!recognitionRef.current) return;
-
-    if (isListening) {
-      recognitionRef.current.stop();
-    } else {
-      setShowLangOptions(true);
-    }
-  };
 
   const handleLanguageSelect = (lang) => {
     setSelectedLanguage(lang);
@@ -319,20 +299,6 @@ export const ChatScreen = () => {
       }, 6000);
     }
   }, [isRecording]);
-
-  const handleContinueAsNonVerified = () => {
-    setAllowNonVerifiedChat(true);
-    setShowNotVerifiedModal(false);
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        sender: "AI",
-        message:
-          "You can continue chatting with the agent. Please ask your question.",
-      },
-    ]);
-  };
 
   return (
     <>
