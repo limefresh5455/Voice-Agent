@@ -17,10 +17,11 @@ import ProtectedRouteSuper from "./components/ProtectedRoute/ProtectedRouteSuper
 import ProtectedRouteAdmin from "./components/ProtectedRoute/ProtectedRouteAdmin.jsx";
 import { ChatScreen } from "./components/User/ChatScreen/chatScreen.jsx";
 import Resolutions from "./components/User/Resolutions/Resolutions.jsx";
-import { EscalationForm } from "./components/Admin/EscalationForm.jsx";
+
 import Leads from "./components/Admin/Leads/Leads.jsx";
 import Services from "./components/Admin/Services/Services.jsx";
 import AdminCustomer from "./components/Admin/AdminCustomer/AdminCustomer.jsx";
+import NonCustomerFacingData from "./components/Admin/NonCustomerFacingData/NonCustomerFacingData.jsx";
 
 function App() {
   return (
@@ -78,9 +79,19 @@ function App() {
             />
           }
         />
+
+        <Route
+          path="/non-customer-facing-data"
+          element={
+            <ProtectedRouteAdmin
+              element={NonCustomerFacingData}
+              allowedRoles={["admin"]}
+            />
+          }
+        />
         {/* User */}
         <Route
-          path="/user-dashboard"
+          path="/organization-dashboard"
           element={
             <ProtectedRouteUser
               element={UserDashboard}
@@ -95,7 +106,7 @@ function App() {
           }
         />
         <Route
-          path="/resolutions"
+          path="customer-client-general-data"
           element={
             <ProtectedRouteUser element={Resolutions} allowedRoles={["user"]} />
           }

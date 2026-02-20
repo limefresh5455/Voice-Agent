@@ -46,9 +46,9 @@ const Sidebar = ({ isOpen }) => {
         <>
           <div className="list-group list-group-flush">
             <Link
-              to="/user-dashboard"
+              to="/organization-dashboard"
               className={`list-group-item list-group-item-action p-3 ${
-                currentPath === "/user-dashboard" ? "active-link" : ""
+                currentPath === "/organization-dashboard" ? "active-link" : ""
               }`}
             >
               <RiAdminFill className="admin_icon" /> Admins
@@ -65,8 +65,8 @@ const Sidebar = ({ isOpen }) => {
                 currentPath === "/customers" ? "active-link" : ""
               }`}
             >
-              <FaUser className="admin_icon" />
-              Customers
+              <i className="bi bi-person-lines-fill me-2"></i>
+              Customers/Clients
             </Link>
           </div>
         </>
@@ -76,12 +76,15 @@ const Sidebar = ({ isOpen }) => {
         <>
           <div className="list-group list-group-flush">
             <Link
-              to="/resolutions"
+              to="/customer-client-general-data"
               className={`list-group-item list-group-item-action p-3 ${
-                currentPath === "/resolutions" ? "active-link" : ""
+                currentPath === "/customer-client-general-data"
+                  ? "active-link"
+                  : ""
               }`}
             >
-              <AiOutlineIssuesClose className="admin_icon" /> Issues
+              <AiOutlineIssuesClose className="admin_icon" /> Customer/Client
+              General Data
             </Link>
           </div>
         </>

@@ -22,7 +22,7 @@ const OrganizationLogin = () => {
     const storedUser = JSON.parse(sessionStorage.getItem("user_credentials"));
 
     if (storedUser?.access_token && storedUser?.role === "user") {
-      navigate("/user-dashboard", { replace: true });
+      navigate("/organization-dashboard", { replace: true });
     }
   }, [navigate]);
 
@@ -70,7 +70,8 @@ const OrganizationLogin = () => {
           setUser(loginResponse);
 
           setTimeout(() => {
-            if (loginResponse.role === "user") navigate("/user-dashboard");
+            if (loginResponse.role === "user")
+              navigate("/organization-dashboard");
           }, 200);
 
           setSignInData({ email: "", password: "" });

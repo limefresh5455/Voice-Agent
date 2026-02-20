@@ -487,11 +487,11 @@ function Services() {
         >
           <div className="d-flex justify-content-between align-items-center heading_sec">
             <div className="d-flex align-items-center">
-              <FaRobot
+              {/* <FaRobot
                 className="me-2"
                 style={{ fontSize: "30px", marginTop: "-6px" }}
-              />
-              <h1>{t("servicesPageTitle")}</h1>
+              /> */}
+              <h3 className="admin_head">{t("servicesPageTitle")}</h3>
             </div>
             <button className="add_btn01" onClick={handleAddServices}>
               <RiAdminFill className="admin_icon" />

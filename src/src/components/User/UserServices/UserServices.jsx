@@ -1,3 +1,4 @@
+import axios from "axios";
 import axiosInstance from "../../Interceptor/Interceptor";
 
 export const CreateAdmin = async (payload) => {
@@ -109,15 +110,24 @@ export const EndChatSummaryAPI = async (payload) => {
 };
 
 export const UploadIssuesFile = async (formData) => {
-  try {
-    const res = await axiosInstance.post(
-      `/org/issues/import-preview`,
-      formData,
-    );
-    return res;
-  } catch (error) {
-    throw error;
-  }
+  return axiosInstance.post("/org/universal-upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+};
+
+export const GetGeneralData = async (
+  organization,
+  page = 1,
+  page_size = 20,
+) => {
+  return axiosInstance.get(`/org/general-data/${organization}`, {
+    params: {
+      page: page,
+      page_size: page_size,
+    },
+  });
 };
 
 export const GetIssues = async (organization_id, page = 1, page_size = 20) => {
@@ -129,11 +139,14 @@ export const GetIssues = async (organization_id, page = 1, page_size = 20) => {
   });
 };
 
-export const ShowIssuesDetail = async (issue_id, organization_id) => {
+export const ShowIssuesDetail = async (row_id, organization_id) => {
   try {
-    const res = await axiosInstance.get(`/org/issue-details/${issue_id}`, {
-      params: { organization: organization_id },
-    });
+    const res = await axiosInstance.get(
+      `/org/dataset-issue-details/${row_id}`,
+      {
+        params: { organization: organization_id },
+      },
+    );
     console.log("apires", res);
     return res;
   } catch (error) {
@@ -143,7 +156,7 @@ export const ShowIssuesDetail = async (issue_id, organization_id) => {
 
 export const deleteIssue = async (payload) => {
   try {
-    const res = await axiosInstance.delete(`/org/issue`, {
+    const res = await axiosInstance.delete(`/org/dataset/issues`, {
       data: payload,
     });
     return res;
@@ -187,7 +200,7 @@ export const UpdateCustomer = async (payload) => {
 
 export const UpdateIssues = async (payload) => {
   try {
-    const res = await axiosInstance.put(`/org/issues/update`, payload);
+    const res = await axiosInstance.put(`/org/dataset/issues/update`, payload);
     return res.data;
   } catch (error) {
     console.error("Error updating issue:", error);

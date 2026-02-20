@@ -1,7 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import Sidebar from "../../CommonComponent/SideBar/SideBar";
-import Navbar from "../../CommonComponent/Navbar/Navbar";
+
 import Loading from "../../CommonComponent/Loading/Loading";
+
+import { toast } from "react-toastify";
+
+import ConfirmDeleteModal from "../../CommonComponent/ConfirmDeleteModal/ConfirmDeleteModal";
+
+import { MdModeEdit, MdDelete } from "react-icons/md";
+import { AiOutlineIssuesClose } from "react-icons/ai";
 
 import {
   deleteIssue,
@@ -10,17 +16,25 @@ import {
   ShowIssuesDetail,
   UpdateIssues,
   UploadIssuesFile,
-} from "../UserServices/UserServices";
-import { toast } from "react-toastify";
-import ConfirmDeleteModal from "../../CommonComponent/ConfirmDeleteModal/ConfirmDeleteModal";
-import { MdModeEdit, MdDelete } from "react-icons/md";
-import { AiOutlineIssuesClose } from "react-icons/ai";
-import IssueDetailsModal from "../../CommonComponent/IssueDetailsModal/IssueDetailsModal";
-import EditIssueModal from "../../CommonComponent/EditIssueModal/EditIssueModal";
-import AddIssueModal from "../../CommonComponent/AddIssueModal/AddIssueModal";
+} from "../../User/UserServices/UserServices";
 
-function Resolutions() {
-  const [isOpen, setIsOpen] = useState(true);
+import { useTranslation } from "react-i18next";
+import { FaBars } from "react-icons/fa";
+import AdminSidebar from "../AdminSidebar";
+import AdminHeader from "../AdminHeader/AdminHeader";
+import CsvMappingModal from "../../CommonComponent/CSVMappingModal/CsvMappingModal";
+import AddIssueModal from "../../CommonComponent/AddIssueModal/AddIssueModal";
+import EditIssueModal from "../../CommonComponent/EditIssueModal/EditIssueModal";
+import IssueDetailsModal from "../../CommonComponent/IssueDetailsModal/IssueDetailsModal";
+
+const NonCustomerFacingData = () => {
+  const [isloading, setIsLoading] = useState(false);
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const { t } = useTranslation();
+  const toggleLeftSidebar = () => {
+    setLeftSidebarOpen((prev) => !prev);
+  };
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(false);
   const [modalData, setModalData] = useState(null);
@@ -28,12 +42,17 @@ function Resolutions() {
   const [modalLoading, setModalLoading] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [deleteModal, setDeleteModal] = useState(false);
-  const user = JSON.parse(sessionStorage.getItem("user_credentials"));
+  const user = JSON.parse(sessionStorage.getItem("admin_credentials"));
+  const role = user?.role;
+  const org_id = user?.org_id;
+  const admin_id = user?.admin;
+  const organizationId = role === "admin" ? org_id : admin_id;
   const [editModalData, setEditModalData] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editModalLoading, setEditModalLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAddIssueModal, setShowAddIssueModal] = useState(false);
+  const [showMappingModal, setShowMappingModal] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkEditIndex, setBulkEditIndex] = useState(0);
   const bulkUpdateRef = useRef([]);
@@ -41,16 +60,14 @@ function Resolutions() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [currentMappingIndex, setCurrentMappingIndex] = useState(0);
   const rowsPerPage = 20;
-  const organization_id = user?.organization;
-  const toggleSidebar = () => {
-    setIsOpen(!isOpen);
-  };
 
   const fetchIssues = async (page = 1) => {
     try {
       setLoading(true);
-      const res = await GetGeneralData(organization_id, page, rowsPerPage);
+      const res = await GetGeneralData(org_id, page, rowsPerPage);
       if (res.status === 200) {
         const responseData = res.data;
         setIssues(responseData.data || []);
@@ -67,14 +84,15 @@ function Resolutions() {
   };
 
   useEffect(() => {
-    if (!organization_id) return;
+    if (!org_id && !admin_id) return;
     fetchIssues(currentPage);
-  }, [organization_id, currentPage]);
+  }, [org_id, admin_id, currentPage]);
 
   const fileInputRef = useRef(null);
   const handleAddIssuesClick = () => {
     fileInputRef.current.click();
   };
+
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
     if (!files.length) return;
@@ -96,8 +114,8 @@ function Resolutions() {
   };
 
   const handleShowDetails = async (row_id) => {
-    const user = JSON.parse(sessionStorage.getItem("user_credentials"));
-    const organization_id = user?.organization;
+    const user = JSON.parse(sessionStorage.getItem("admin_credentials"));
+    const organization_id = user?.org_id;
 
     try {
       setModalLoading(true);
@@ -113,14 +131,13 @@ function Resolutions() {
     }
   };
 
-  const handleEdit = async (row_id) => {
-    const user = JSON.parse(sessionStorage.getItem("user_credentials"));
-    const organization_id = user?.organization;
+  const handleEdit = async (issue_id) => {
     try {
       setEditModalLoading(true);
       setShowEditModal(true);
-      const res = await ShowIssuesDetail(row_id, organization_id);
-      setEditModalData(res.data);
+
+      const res = await ShowIssuesDetail(issue_id, organizationId);
+      setEditModalData(res);
     } catch (error) {
       console.error(error);
       toast.error("Failed to fetch issue details");
@@ -141,16 +158,22 @@ function Resolutions() {
           return;
         } else {
           await UpdateIssues(bulkUpdateRef.current);
+          toast.success("All issues updated successfully!");
+          bulkUpdateRef.current = [];
+          setSelectedIds([]);
+          setIsBulkEditing(false);
+          setShowEditModal(false);
+          fetchIssues();
         }
       } else {
         await UpdateIssues([updatedData]);
+        toast.success(t("issueUpdatedSuccess"));
+        setShowEditModal(false);
+        fetchIssues();
       }
-      toast.success("Issue updated successfully!");
-      setShowEditModal(false);
-      fetchIssues();
     } catch (error) {
-      console.error(error.response?.data || error);
-      toast.error("Update failed!");
+      console.error(error);
+      toast.error(t("updateFailed"));
     }
   };
 
@@ -184,26 +207,33 @@ function Resolutions() {
     if (selectedIds.length === issues.length) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(issues.map((item) => item.row_id));
+      setSelectedIds(issues.map((item) => item.issue_id));
     }
   };
 
   return (
-    <>
-      {loading && <Loading />}
-      <div id="wrapper" className={`d-flex ${isOpen ? "toggled" : ""}`}>
-        <Sidebar isOpen={isOpen} />
-        <Navbar onToggleSidebar={toggleSidebar} />
-        <div id="page-content-wrapper">
-          <div className="container-fluid px-3 px-md-4 pt-0 pt-md-2">
+    <div style={{ width: "100%" }}>
+      {(isloading || loadingDetail) && <Loading />}
+      <div className="content-wrapper">
+        <div className="back02" onClick={toggleLeftSidebar}>
+          <FaBars />
+        </div>
+        <AdminSidebar isOpen={leftSidebarOpen} />
+        <AdminHeader />
+        <div
+          className={`main admin_main ${!leftSidebarOpen ? "fullwidth" : ""}`}
+          id="main-content"
+        >
+          <div className="container-fluid px-0 pt-0">
             <div className="d-flex justify-content-between align-items-center  mb-4 mt-3 flex-wrap">
-              <h3 className="admin_head">Create Issues</h3>
+              <h3 className="admin_head mb-0">{t("createIssues")}</h3>
+
               <div className="action-header-btns">
                 <button
                   className="issue-primary-action-btn"
                   onClick={() => setShowAddIssueModal(true)}
                 >
-                  + Add Issue
+                  + {t("addIssue")}
                 </button>
 
                 <button
@@ -211,21 +241,25 @@ function Resolutions() {
                   onClick={handleAddIssuesClick}
                 >
                   <AiOutlineIssuesClose className="btn-icon" />
-                  Upload file
+                  {t("uploadFile")}
                 </button>
-              </div>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                style={{ display: "none" }}
-                multiple
-              />
-            </div>
 
+                <input
+                  type="file"
+                  accept=".json,application/json,.csv,text/csv"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  style={{ display: "none" }}
+                  multiple
+                />
+              </div>
+            </div>
             {selectedIds.length > 0 && (
               <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded">
-                <span>{selectedIds.length} selected</span>
+                <span>
+                  {selectedIds.length} {t("selected")}
+                </span>
+
                 <div className="d-flex gap-2">
                   <button
                     className="customer_edit_btn"
@@ -238,7 +272,7 @@ function Resolutions() {
                     }}
                   >
                     <MdModeEdit />
-                    Edit
+                    {t("edit")}
                   </button>
 
                   <button
@@ -246,7 +280,7 @@ function Resolutions() {
                     onClick={() => setDeleteModal(true)}
                   >
                     <MdDelete />
-                    Delete
+                    {t("delete")}
                   </button>
                 </div>
               </div>
@@ -452,7 +486,7 @@ function Resolutions() {
         <EditIssueModal
           show={showEditModal}
           loading={editModalLoading}
-          data={editModalData}
+          data={editModalData ? editModalData.data : null}
           onClose={() => setShowEditModal(false)}
           onSave={handleSaveEdit}
           isBulkEditing={isBulkEditing}
@@ -507,12 +541,12 @@ function Resolutions() {
         <AddIssueModal
           show={showAddIssueModal}
           onClose={() => setShowAddIssueModal(false)}
-          organization={organization_id}
+          organization={org_id}
           onIssueAdded={handleIssueAdded}
         />
       </div>
-    </>
+    </div>
   );
-}
+};
 
-export default Resolutions;
+export default NonCustomerFacingData;

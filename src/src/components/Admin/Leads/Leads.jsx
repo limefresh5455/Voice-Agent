@@ -177,11 +177,11 @@ function Leads() {
           id="main-content"
         >
           <div className="heading_sec">
-            <FaRobot
+            {/* <FaRobot
               className="me-2"
               style={{ fontSize: "30px", marginTop: "-10px" }}
-            />
-            <h1>{t("connectToLeads")}</h1>
+            /> */}
+            <h3 className="admin_head">{t("connectToLeads")}</h3>
           </div>
           {selectedLeadIds.length > 0 && (
             <div className="d-flex justify-content-between align-items-center mb-3 p-2 bg-light border rounded">

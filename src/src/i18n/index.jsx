@@ -24,7 +24,7 @@ const resources = {
       assigning: "Assigning...",
       new: "New",
       cancel: "Cancel",
-      // FormDetailsView keys
+
       formDetails: "Form Details",
       close: "Close",
       loadingDetails: "Loading details...",
@@ -45,7 +45,7 @@ const resources = {
       deleteConfirmationMessage: "Are you sure you want to delete this form?",
       deleting: "Deleting...",
       yesDelete: "Yes, Delete",
-      // For Sidebar data
+
       escalationForm: "Escalation Form",
       customerDetails: "Customer Details",
       activeServices: "Active Services",
@@ -73,7 +73,7 @@ const resources = {
       noServicesFound: "No services found",
       noRestrictions: "No restrictions",
       noTransactionsFound: "No transactions found",
-      // Sidebar keys
+
       leads: "Leads",
       customerServices: "Customer Services",
       customer: "Customer",
@@ -137,6 +137,26 @@ const resources = {
       updating: "Updating...",
       toastServiceUpdated: "Service updated successfully",
       allFieldsRequired: "All fields are required",
+      createIssues: "Create Issues",
+      addIssue: "Add Issue",
+      uploadFile: "Upload File",
+      selected: "selected",
+      category: "Category",
+      issues: "Issues",
+      suggestionTime: "Suggestion Time",
+      routerCall: "Router Call",
+      noIssuesFound: "No issues found",
+      deleteIssueConfirm: "Are you sure you want to delete selected issue(s)?",
+      fetchIssuesFailed: "Failed to fetch issues",
+      issueUpdatedSuccess: "Issue updated successfully!",
+      updateFailed: "Update failed!",
+      deleteIssueFailed: "Failed to delete issue!",
+      issueDeletedSuccess: "Issue deleted successfully!",
+      uploadSuccess: "Files uploaded successfully",
+      uploadFailed: "Upload failed",
+      onlyJsonCsvAllowed: "Only JSON or CSV files are allowed",
+      nonCustomerFacingData: "Non-Customer Facing Data",
+      customersClients: "Customers / Clients",
     },
   },
   es: {
@@ -165,7 +185,7 @@ const resources = {
       cancel: "Cancelar",
       deleting: "Eliminando...",
       yesDelete: "Sí, eliminar",
-      // FormDetailsView keys
+
       formDetails: "Detalles del Formulario",
       loadingDetails: "Cargando detalles...",
       customerEmail: "Correo Electrónico del Cliente",
@@ -182,7 +202,7 @@ const resources = {
       aiUserChatSummary: "Resumen del Chat entre AI y Usuario",
       noAiSummary: "No se encontró resumen de AI",
       escalationForm: "Formulario de Escalación",
-      //for sidebar data
+
       customerDetails: "Detalles del Cliente",
       activeServices: "Servicios Activos",
       restrictions: "Restricciones",
@@ -209,11 +229,11 @@ const resources = {
       noServicesFound: "No se encontraron servicios",
       noRestrictions: "Sin restricciones",
       noTransactionsFound: "No se encontraron transacciones",
-      // Sidebar keys
+
       leads: "Clientes Potenciales",
       customerServices: "Servicios al Cliente",
       customer: "Cliente",
-      // Services Page – Spanish
+
       servicesPageTitle: "Conectar con Servicios",
       addServices: "Agregar Servicios",
       addServiceDetails: "Agregar Detalles del Servicio",
@@ -268,12 +288,32 @@ const resources = {
       customerUpdateFailed: "Error al actualizar el cliente",
       customerDeletedSuccess: "Cliente eliminado con éxito",
       customerDeleteFailed: "Error al eliminar el cliente",
-
       toastServiceDeleted: "Servicio eliminado con éxito",
       submitting: "Enviando...",
       updating: "Actualizando...",
       toastServiceUpdated: "Servicio actualizado con éxito",
       allFieldsRequired: "Todos los campos son obligatorios",
+      createIssues: "Crear Problemas",
+      addIssue: "Agregar Problema",
+      uploadFile: "Subir Archivo",
+      selected: "seleccionado(s)",
+      category: "Categoría",
+      issues: "Problemas",
+      suggestionTime: "Tiempo Sugerido",
+      routerCall: "Canal de Enrutamiento",
+      noIssuesFound: "No se encontraron problemas",
+      deleteIssueConfirm:
+        "¿Está seguro de que desea eliminar los problemas seleccionados?",
+      fetchIssuesFailed: "Error al obtener los problemas",
+      issueUpdatedSuccess: "¡Problema actualizado con éxito!",
+      updateFailed: "¡Actualización fallida!",
+      deleteIssueFailed: "Error al eliminar el problema",
+      issueDeletedSuccess: "Problema eliminado con éxito",
+      uploadSuccess: "Archivos subidos con éxito",
+      uploadFailed: "Error al subir archivo",
+      onlyJsonCsvAllowed: "Solo se permiten archivos JSON o CSV",
+      nonCustomerFacingData: "Datos No Orientados al Cliente",
+      customersClients: "Clientes",
     },
   },
   pt: {
@@ -301,7 +341,7 @@ const resources = {
       cancel: "Cancelar",
       deleting: "Excluindo...",
       yesDelete: "Sim, excluir",
-      // FormDetailsView keys
+
       formDetails: "Detalhes do Formulário",
       close: "Fechar",
       loadingDetails: "Carregando detalhes...",
@@ -319,7 +359,7 @@ const resources = {
       aiUserChatSummary: "Resumo do Chat entre AI e Usuário",
       noAiSummary: "Nenhum resumo de AI encontrado",
       escalationForm: "Formulário de Escalonamento",
-      //for sidebar data
+
       customerDetails: "Detalhes do Cliente",
       activeServices: "Serviços Ativos",
       restrictions: "Restrições",
@@ -344,10 +384,8 @@ const resources = {
       noServicesFound: "Nenhum serviço encontrado",
       noRestrictions: "Nenhuma restrição",
       noTransactionsFound: "Nenhuma transação encontrada",
-      // Sidebar keys
       leads: "Leads",
       customerServices: "Serviços ao Cliente",
-      // Services Page – Portuguese
       servicesPageTitle: "Conectar aos Serviços",
       addServices: "Adicionar Serviços",
       addServiceDetails: "Adicionar Detalhes do Serviço",
@@ -411,6 +449,27 @@ const resources = {
       updating: "Atualizando...",
       toastServiceUpdated: "Serviço atualizado com sucesso",
       allFieldsRequired: "Todos os campos são obrigatórios",
+      createIssues: "Criar Problemas",
+      addIssue: "Adicionar Problema",
+      uploadFile: "Enviar Arquivo",
+      selected: "selecionado(s)",
+      category: "Categoria",
+      issues: "Problemas",
+      suggestionTime: "Tempo Sugerido",
+      routerCall: "Canal de Roteamento",
+      noIssuesFound: "Nenhum problema encontrado",
+      deleteIssueConfirm:
+        "Tem certeza de que deseja excluir os problemas selecionados?",
+      fetchIssuesFailed: "Falha ao buscar problemas",
+      issueUpdatedSuccess: "Problema atualizado com sucesso!",
+      updateFailed: "Falha na atualização!",
+      deleteIssueFailed: "Falha ao excluir problema",
+      issueDeletedSuccess: "Problema excluído com sucesso",
+      uploadSuccess: "Arquivos enviados com sucesso",
+      uploadFailed: "Falha no upload",
+      onlyJsonCsvAllowed: "Apenas arquivos JSON ou CSV são permitidos",
+      nonCustomerFacingData: "Dados Não Voltados ao Cliente",
+      customersClients: "Clientes",
     },
   },
 };

@@ -297,11 +297,11 @@ const AdminCustomer = () => {
         >
           <div className="d-flex justify-content-between align-items-center heading_sec">
             <div className="d-flex align-items-center">
-              <FaRobot
+              {/* <FaRobot
                 className="me-2"
                 style={{ fontSize: "30px", marginTop: "-6px" }}
-              />
-              <h1>{t("connectToCustomers")}</h1>
+              /> */}
+              <h3 className="admin_head">{t("connectToCustomers")}</h3>
             </div>
             <button
               className="add_btn01"

@@ -12,11 +12,12 @@ import {
 } from "../UserServices/UserServices";
 import ConfirmDeleteModal from "../../CommonComponent/ConfirmDeleteModal/ConfirmDeleteModal";
 import { useNavigate } from "react-router-dom";
-import AddCustomerModal from "../../Admin/AddCustomerModal";
-import EditCustomerModal from "./EditCustomerModal";
+
 import { FaUser, FaUsers } from "react-icons/fa";
 import { MdModeEdit, MdDelete } from "react-icons/md";
 import { useRef } from "react";
+import AddCustomerModal from "./AddCustomerModal/AddCustomerModal";
+import EditCustomerModal from "./EditCustomerModal/EditCustomerModal";
 
 function Customers() {
   const navigate = useNavigate();
@@ -24,7 +25,6 @@ function Customers() {
   const [isOpen, setIsOpen] = useState(true);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-
   const [isLoadingFile, setIsLoadingFile] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
@@ -91,6 +91,7 @@ function Customers() {
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
   };
+
   const GetCustomers = async (page = 1) => {
     try {
       setIsLoading(true);

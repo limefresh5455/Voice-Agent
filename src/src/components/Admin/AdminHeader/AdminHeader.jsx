@@ -25,12 +25,11 @@ const AdminHeader = () => {
     <header>
       <div className="admin-header">
         <div className="row">
-          <div className="col-lg-3"></div>
-          <div className="col-lg-7 text-right">
-            <div className="admin_info ">
+          <div className="col-12 d-flex justify-content-end">
+            <div className="admin_info text-end">
               <LanguageDropdown />
 
-              <div className="text-start">
+              <div className="text-end">
                 {user?.org_name && (
                   <div className="text-muted small">
                     <strong>{t("organization")}:</strong> {user.org_name}

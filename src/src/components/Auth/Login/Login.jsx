@@ -33,7 +33,7 @@ const Login = () => {
         } else if (role === "admin") {
           navigate("/admin-dashboard");
         } else if (role === "user") {
-          navigate("/user-dashboard");
+          navigate("/organization-dashboard");
         }
       }
     }
@@ -63,7 +63,7 @@ const Login = () => {
             } else if (loginResponse.role === "admin") {
               navigate("/admin-dashboard");
             } else if (loginResponse.role == "user") {
-              navigate("/user-dashboard");
+              navigate("/organization-dashboard");
             }
           }, 100);
           setSignInData({ email: "", password: "" });
